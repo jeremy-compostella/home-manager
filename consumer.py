@@ -31,6 +31,7 @@ import sensor
 import math
 import requests
 
+from math import floor
 from datetime import datetime, timedelta
 from pyecobee import *
 from statistics import mean
@@ -130,9 +131,17 @@ class MyWaterHeater(Consumer):
     def __init__(self, config):
         Consumer.__init__(self, config)
 
+def minutes_to_datetime(minutes):
+    return datetime.now().replace(hour=floor(minutes/60),
+                                  minute=minutes % 60,
+                                  second=0, microsecond=0)
+
+def slot(hour, minute):
+    return hour * 2 + round(minute / 30)
+
 class MyEcobee(Sensor, Consumer):
     ecobee = None
-    temperature_cache = {}
+    __identifier = None
 
     def __refreshTokens(self):
         self.ecobee.refresh_tokens()
@@ -159,6 +168,11 @@ class MyEcobee(Sensor, Consumer):
         if datetime.now(pytz.utc) >= self.ecobee.access_token_expires_on:
             self.__refreshTokens()
 
+        sel = Selection(selection_type=SelectionType.REGISTERED.value,
+                        selection_match='')
+        thermostats = self.__try(lambda: self.ecobee.request_thermostats(sel))
+        self.__identifier = thermostats.thermostat_list[0].identifier
+
     def __try(self, fun):
         for i in range(3):
             try:
@@ -166,18 +180,19 @@ class MyEcobee(Sensor, Consumer):
             except EcobeeApiException as e:
                 if e.status_code == 14:
                     self.__refreshTokens()
-            except requests.exceptions.ReadTimeout as e:
+            except:
                 pass
         return None
 
-    def getSensorTemperatures(self):
+    temperature_cache = {}
+    def temperatures(self):
         if not self.ecobee:
             return {}
         sel = Selection(selection_type=SelectionType.REGISTERED.value,
                         selection_match='',
                         include_sensors=True)
         thermostats = self.__try(lambda: self.ecobee.request_thermostats(sel))
-        if thermostats == None:
+        if thermostats == 'unknown' or thermostats == None:
             return self.temperature_cache
         temps = {}
         for s in thermostats.thermostat_list[0].remote_sensors:
@@ -186,7 +201,72 @@ class MyEcobee(Sensor, Consumer):
         return temps
 
     def read(self):
-        return self.getSensorTemperatures()
+        return self.temperatures()
+
+    def __program(self):
+        if not self.ecobee:
+            return None
+        sel = Selection(selection_type=SelectionType.REGISTERED.value,
+                        selection_match='',
+                        include_program=True)
+        thermostats = self.__try(lambda: self.ecobee.request_thermostats(sel))
+        if thermostats == None:
+            return None
+        try:
+            return thermostats.thermostat_list[0].program
+        except IndexError:
+            return None
+
+    def programInfo(self, name):
+        program = self.__program()
+        if not program:
+            return None
+        climate = [ c for c in program.climates if c.name == name ][0]
+        today = program.schedule[datetime.today().weekday()]
+        minutes = 0
+        start = None
+        climateSensors=[ x.name for x in climate.sensors ]
+        temps = { k:v for (k, v) in self.temperatures().items()
+                  if k in climateSensors }
+        for p in today:
+            if p != climate.climate_ref and start:
+                return { 'start': start,
+                         'stop':minutes_to_datetime(minutes),
+                         'current':mean(temps.values()),
+                         'target':float(climate.cool_temp) / 10 }
+            if not start and p == climate.climate_ref:
+                start = minutes_to_datetime(minutes)
+            minutes += 30
+        return None
+
+    def setProgramSchedule(self, name, start, stop):
+        program = self.__program()
+        if not program:
+            return None
+        climate = [ c for c in program.climates if c.name == name ][0]
+        today = program.schedule[datetime.today().weekday()]
+        prev = None
+        for i in range(0, slot(start.hour, start.minute)):
+            if today[i] == climate.climate_ref:
+                if not prev:
+                    raise Exception('Fatal error', 'Fatal error')
+                today[i] = prev
+            else:
+                prev = today[i]
+        for i in range(slot(start.hour, start.minute),
+                       slot(stop.hour, stop.minute)):
+            today[i] = climate.climate_ref
+        for i in range(slot(23, 30), slot(stop.hour, stop.minute) - 1, -1):
+            if (today[i] != climate.climate_ref):
+                prev = today[i]
+            else:
+                today[i] = prev
+        sel = Selection(selection_type=SelectionType.REGISTERED.value,
+                        selection_match='',
+                        include_program=True)
+        return self.ecobee.update_thermostats(sel,
+             thermostat=Thermostat(identifier=self.__identifier,
+                                   program=program))
 
     def isAboutToStart(self):
         if not self.ecobee:
@@ -214,7 +294,7 @@ class MyEcobee(Sensor, Consumer):
         slot = t.tm_hour * 2 + round((t.tm_min + 1) / 30)
         climate = [ x for x in program.climates if x.climate_ref == today[slot] ][0]
         climateSensors=[ x.name for x in climate.sensors ]
-        temps = { k:v for (k, v) in self.getSensorTemperatures().items()
+        temps = { k:v for (k, v) in self.temperatures().items()
                   if k in climateSensors }
         current = mean(temps.values())
         if current > climate.cool_temp / 10 or current < climate.heat_temp / 10:
