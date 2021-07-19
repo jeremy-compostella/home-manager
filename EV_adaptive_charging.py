@@ -64,9 +64,10 @@ def main():
     logger.debug("%s is initializing..." % MOD_DESC)
 
     ev = MyWallBox(config['Wallbox'], logger)
-    consumers = [ MyPoolPump(config['Pool']),
-                  MyWaterHeater(config['Aquanta']),
-                  MyEcobee(config['Ecobee']) ]
+    consumers = []
+    for c in config['general']['consumers'].split(','):
+        cl = eval(config[c]['class']) if 'class' in config[c] else Consumer
+        consumers.append(cl(config[c]))
     weather = MyOpenWeather(config['OpenWeather'])
     vue = MyVue2(config['Emporia'])
 

@@ -71,10 +71,10 @@ def main():
     config = configparser.ConfigParser()
     config.read('home.ini')
 
-    sensors = [ MyVue2(config['Emporia']),
-                MyOpenWeather(config['OpenWeather']),
-                MyEcobee(config['Ecobee']),
-                MyWirelessTag(config['WirelessTag']) ]
+    sensors = [ ]
+    for s in config['general']['sensors'].split(','):
+        c = eval(config[s]['class'])
+        sensors.append(c(config[s]))
 
     while True:
         header = [ 'time' ]
