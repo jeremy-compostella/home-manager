@@ -27,12 +27,9 @@
 # OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import argparse
-import configparser
 import csv
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
-import numpy as np
-import smtplib
 import sys
 
 from consumer import *
@@ -44,6 +41,7 @@ from enum import IntEnum
 from os.path import basename, splitext, isfile
 from producer import *
 from statistics import median
+from tools import *
 
 class SensorLogReader(csv.DictReader):
     DEFAULT_FILENAME="sensor.csv"
@@ -99,20 +97,6 @@ class Utility:
         schedule=eval(self.config[sched_name])
         found = [ x for x in schedule if date.hour >= x[0] and date.hour < x[1] ]
         return len(found) == 1
-
-class MyEmail:
-    def __init__(self, config):
-        self.config = config
-
-    def send(self, msg):
-        msg['From'] = self.config['from']
-        msg['To'] = self.config['to']
-
-        server = smtplib.SMTP_SSL(self.config['server'],
-                                  int(self.config['port']))
-        server.ehlo()
-        server.login(self.config['login'], self.config['password'])
-        server.sendmail(msg['From'], msg['To'], msg.as_string())
 
 def get_sensors_and_label(val, items):
     sensors=[]
@@ -191,8 +175,8 @@ def duration_string(duration):
 
 def main(argv):
     args = parse_args()
-    config = configparser.ConfigParser()
-    config.read("home.ini")
+
+    config = init()
 
     utility = Utility(config['SRP'])
     sums = { k: 0 for k in ['imported', 'exported', 'produced', 'onpeak', 'offpeak' ] }
@@ -282,7 +266,7 @@ def main(argv):
         part['Content-Disposition'] = 'attachment; filename="%s"' % basename(plot_file)
         msg.attach(part)
 
-        MyEmail(config['Email']).send(msg)
+        sendEmail(msg)
     else:
         print(title)
         print("")

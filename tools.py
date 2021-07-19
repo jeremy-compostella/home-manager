@@ -95,6 +95,9 @@ def notify(text):
         _logger.warning(text)
     _mailer.sendMIMEText(text)
 
+def sendEmail(msg):
+    _mailer.send(msg)
+
 def wait_for_next_minute():
     t = datetime.now()
     sleeptime = 60 - (t.second + t.microsecond/1000000.0)
