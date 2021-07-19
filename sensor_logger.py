@@ -24,9 +24,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 # OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import configparser
 import csv
-import logging
 import os
 import time
 
@@ -34,6 +32,7 @@ from datetime import datetime
 
 from sensor import *
 from consumer import *
+from tools import *
 
 class SensorLogWriter:
     def __setup(self):
@@ -61,15 +60,8 @@ class SensorLogWriter:
         self.writer.writerow(rowdict)
         self.f.flush()
 
-def wait_for_next_minute():
-    t = datetime.now()
-    sleeptime = 60 - (t.second + t.microsecond/1000000.0)
-    if sleeptime > 0:
-        time.sleep(sleeptime)
-
 def main():
-    config = configparser.ConfigParser()
-    config.read('home.ini')
+    config = init()
 
     sensors = [ ]
     for s in config['general']['sensors'].split(','):
@@ -83,12 +75,12 @@ def main():
                 header += sensor.read().keys()
             break
         except:
-            logging.warning("Read from sensor failed")
+            log("Read from sensor failed")
             time.sleep(60)
 
     logger = SensorLogWriter(config['general']['sensor_db'], header)
-    wait_for_next_minute()
     while True:
+        wait_for_next_minute()
         t = datetime.now()
         row = { 'time': t.strftime("%m/%d/%Y %H:%M:%S") }
         try:
@@ -96,8 +88,7 @@ def main():
                 row.update(sensor.read().items())
             logger.log(row)
         except:
-            logging.warning("Read from sensor failed")
-        wait_for_next_minute()
+            log("Read from sensor failed")
 
 if __name__ == "__main__":
     main()
