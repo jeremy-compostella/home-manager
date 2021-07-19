@@ -119,7 +119,7 @@ class Consumer:
         self.__updateSchedule()
         now = datetime.now()
         for t in self._schedule:
-            if t - timedelta(0, 60) <= now <= t + timedelta(0, 30):
+            if t - timedelta(0, 90) <= now <= t + timedelta(0, 30):
                 return True
         return False
 
