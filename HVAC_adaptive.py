@@ -34,31 +34,26 @@ from consumer import *
 from sensor import *
 from tools import *
 
-def value(v):
-    try:
-        return float(v)
-    except ValueError:
-        return v
-
 def load_database(filename):
-    return list(csv.reader(open(filename, 'r'),
-                           quoting=csv.QUOTE_NONNUMERIC))
+    return list(csv.DictReader(open(filename, 'r'),
+                               fieldnames=['temperature', 'rate'],
+                               quoting=csv.QUOTE_NONNUMERIC))
 
 def estimate(database, outdoor, indoor, goal):
     item = None
     prev= None
-    if outdoor < database[0][0]:
+    if outdoor < database[0]['temperature']:
         item = database[0]
-    elif outdoor > database[-1][0]:
+    elif outdoor > database[-1]['temperature']:
         item = database[-1]
     else:
         for item in database:
-            if item[0] >= outdoor:
+            if item['temperature'] >= outdoor:
                 break
             prev = item
-    rate = item[1]
-    if item[0] != outdoor and prev:
-        rate = (item[1] + prev[1]) / 2
+    rate = item['rate']
+    if item['temperature'] != outdoor and prev:
+        rate = (item['rate'] + prev['rate']) / 2
     return (indoor - goal) * rate
 
 def main():
@@ -101,7 +96,7 @@ def main():
         if allocated > required:
             ecobee.setProgramSchedule(program, info['start'] + timedelta(minutes=30),
                                       info['stop'])
-            notify("'%s' program schedule shifted by 30 minutes" % program)
+            notify("'%s' program schedule postponed by 30 minutes" % program)
             if not saved:
                 saved = info
 
