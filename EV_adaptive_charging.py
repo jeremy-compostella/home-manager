@@ -26,43 +26,24 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 # OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import configparser
-import logging
 import os
 import time
 
-from sensor import *
-from consumer import *
-
 from datetime import datetime, timedelta
-from logging.handlers import TimedRotatingFileHandler
 
-MOD_DESC=os.path.splitext(os.path.basename(__file__))[0].replace("_", " ")
+from consumer import *
+from sensor import *
+from tools import *
 
-def createLogger(filename):
-    logger = logging.getLogger(MOD_DESC)
-    logger.setLevel(logging.DEBUG)
-    handler = TimedRotatingFileHandler(filename=filename, when="midnight",
-                                       interval=1)
-    handler.suffix = "%Y%m%d"
-    handler.setFormatter(logging.Formatter('%(asctime)s %(message)s'))
-    logger.addHandler(handler)
-    return logger
-
-def logStatus(logger, usage, ev):
+def logStatus(usage, ev):
     actives = { k:v for (k, v) in usage.items() if k == 'net' or abs(v) > 0.1 }
     s = ', '.join([ "%s: %.02f" % (x[0], x[1]) for x in actives.items() ])
     if ev.isCharging():
         s += ", added: %.2f KWh" % ev.getAddedEnergy()
-    logger.debug(s)
+    log(s)
 
 def main():
-    config = configparser.ConfigParser()
-    config.read("home.ini")
-
-    logger = createLogger(os.path.splitext(__file__)[0]+'.log')
-    logger.debug("%s is initializing..." % MOD_DESC)
-
+    config, logger = init(os.path.splitext(__file__)[0]+'.log')
     ev = MyWallBox(config['Wallbox'], logger)
     consumers = []
     for c in config['general']['consumers'].split(','):
@@ -71,22 +52,22 @@ def main():
     weather = MyOpenWeather(config['OpenWeather'])
     vue = MyVue2(config['Emporia'])
 
-    logger.debug("%s is ready to run" % MOD_DESC)
+    log("Is ready to run")
     while True:
         if weather.isNightTime():
-            logger.debug("No solar production at night")
+            log("No solar production at night")
             ev.stop()
             time.sleep(60 * 5)
             continue
 
         if not ev.isConnected():
-            logger.debug("Waiting for car connection")
+            log("Waiting for car connection")
             ev.stop()
             time.sleep(15)
             continue
 
         if ev.isFullyCharged():
-            logger.debug("Fully charged, nothing to do")
+            log("Fully charged, nothing to do")
             ev.stop()
             time.sleep(60)
             continue
@@ -97,19 +78,19 @@ def main():
                 usage=vue.read(scale=Scale.SECOND.value)
                 break
             except:
-                logger.warning("%s sensor read failed" % type(vue).__name__)
+                notify("%s sensor read failed" % type(vue).__name__)
                 if entered_at + timedelta(seconds=90) < datetime.now():
                     ev.stop()
                 time.sleep(15)
                 continue
 
-        logStatus(logger, usage, ev)
+        logStatus(usage, ev)
         available = (usage["net"] - ev.totalPower(usage)) * -1
 
         for c in consumers:
             if not c.isRunning(usage) and c.isAboutToStart():
                 available -= c.power[-1]
-                logger.debug("Anticipating need for %s" % c.name)
+                log("Anticipating need for %s" % c.name)
 
         try:
             target = [ x for x in ev.power if x <= available ][-1]

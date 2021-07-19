@@ -27,6 +27,7 @@
 # OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import configparser
+import threading
 
 from consumer import *
 from email.mime.multipart import MIMEMultipart
@@ -34,50 +35,102 @@ from email.mime.text import MIMEText
 from sensor import *
 from stat_sensor import MyEmail
 
-config = None
+reader = None
+class SensorReader:
+    expiration = None
+    usage = None
 
-def alert(title):
-    msg = MIMEMultipart('related')
-    msg.preamble = 'This is a multi-part message in MIME format.'
-    msg['Subject'] = title
-    alternative = MIMEMultipart('alternative')
-    msg.attach(alternative)
-    alternative.attach(MIMEText(title.encode('utf-8'), 'plain', _charset='utf-8'))
-    MyEmail(config['Email']).send(msg)
+    def __init__(self, vue):
+        self.vue = vue
+        self._usage_lock = threading.Lock()
+
+    def __read(self):
+        try:
+            return vue.read(scale=Scale.SECOND.value)
+        except:
+            return False
+
+    def read(self):
+        with self._usage_lock:
+            if self.expiration and datetime.now() < self.expiration:
+                return self.usage
+            usage = test(lambda: self.__read(),
+                         "Emporia is unreachable", end_msg = "Emporia is back")
+            expiration = datetime.now() + timedelta(seconds=15)
+        return self.usage
+
+def test(fun, msg, end_msg=None, timeout=90, sleep=15):
+    start = datetime.now()
+    while True:
+        ret = fun()
+        if ret:
+            if not start and end_msg:
+                mailer.sendMIMEText(end_msg)
+            return ret
+        if start and start + timedelta(seconds=timeout) < datetime.now():
+            mailer.sendMIMEText(msg)
+            start = None
+            time.sleep(sleep)
+
+def hvac_yellow():
+    print('%s' % __name__)
+    usage = reader.read()
+    return usage['A/C'] > .1 and usage['air handler'] < .1,
+
+def hvac_red():
+    """HVAC: When the Yellow wire is shunt by float T-switch the air
+handler stops running but the Heat Pump is still running
+    """
+    print('%s' % __name__)
+    usage = reader.read();
+    return usage['A/C'] > .1 and usage['air handler'] < .1
 
 def main():
-    global config
     config = configparser.ConfigParser()
     config.read("home.ini")
 
+    global mailer
+    mailer = MyEmail(config['Email'])
     vue = MyVue2(config['Emporia'])
-    while True:
-        # Monitor Emporia service
-        entered_at = datetime.now()
-        while True:
-            try:
-                usage=vue.read(scale=Scale.SECOND.value)
-                break
-            except:
-                if entered_at and entered_at + timedelta(seconds=90) < datetime.now():
-                    alert("Emporia has been inaccessible for more than 90 seconds")
-                    entered_at = None
-                    time.sleep(15)
-                continue
-        if not entered_at:
-            alert("Emporia service is back")
+    global reader
+    reader = SensorReader(vue)
+    threads = [ threading.Thread(target=lambda: test(hvac_yellow,
+                                                     'air handler running alone'))
+                # threading.Thread(target=hvac_red)
+               ]
+    for t in threads:
+        t.start()
 
-        # Monitor Air Handler
-        if usage['A/C'] > 1 and usage['air handler'] < .1:
-            entered_at = datetime.now()
-            while True:
-                sleep(15)
-                usage=vue.read(scale=Scale.SECOND.value)
-                if usage['A/C'] < 1 or usage['air handler'] > .1:
-                    break
-                if entered_at and entered_at + timedelta(seconds=90) < datetime.now():
-                    alert('air handler is not running while A/C is')
-                    entered_at = None
+    # IP address monitoring
+    while True:
+        time.sleep(60)
+        # # Power sensor
+        # # ------------
+        # # Sometimes the Emporia service becomes inaccessible.
+        # usage = test(lambda: emporia(vue), "Emporia is unreachable",
+        #              end_msg = "Emporia is back")
+
+        # # HVAC
+        # # ----
+        # # 1. When the Yellow wire is shunt by float T-switch the air handler
+        # #    stops running but the Heat Pump is still running
+        # test(lambda: usage['A/C'] > .1 and usage['air handler'] < .1,
+        #      "air handler is not running while A/C is")
+        # # 2. When the Red wire is shunt by float T-switch, the air
+        # #    handler keeps running but the condensation and the heat
+        # #    pump do not run
+        # test(lambda: usage['A/C'] < .1 and usage['air handler'] > .1,
+        #      "air handler is not running while A/C is")
+        # print("HVAC is okay")
+
+        # # Pool
+        # # ----
+        # # 1. Out of range power consumption (June 21 2021: pool filter
+        # #    head cracked)
+        # # 2. Ran for a very short period of time (less than 2 minutes)
+        # #    July 7 2021: less than 2 minutes: pool pump capacitor
+        # #    died)
+        # time.sleep(60)
 
 if __name__ == "__main__":
     main()
