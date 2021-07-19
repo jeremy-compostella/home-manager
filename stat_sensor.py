@@ -41,7 +41,7 @@ from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from enum import IntEnum
-from os.path import basename, splitext
+from os.path import basename, splitext, isfile
 from producer import *
 from statistics import median
 
@@ -56,6 +56,8 @@ class SensorLogReader(csv.DictReader):
             else:
                 filename = self.DEFAULT_FILENAME
         self.filename = filename
+        if not isfile(filename):
+            raise FileNotFoundError()
 
     def __iter__(self):
         f = open(self.filename, 'r')
@@ -136,8 +138,8 @@ def plot(reader, title, consumers, producers, filename=None):
     fig, ax = plt.subplots()
     ax.stackplot(val['time'], [ x - y for (x, y) in zip(val['net'], val['solar']) ],
                  labels=["Other"],
-                 colors=['lightgrey', "tab:blue", "tab:red",
-                         "gold", "tab:green", "tab:cyan", "tab:pink"])
+                 colors=['lightgrey', "tab:blue", "gold", "tab:cyan", "tab:pink",
+                         "tab:red", "tab:green"])
 
     (sensors, labels) = get_sensors_and_label(val, consumers)
     ax.stackplot(val['time'], sensors, labels=labels)
@@ -148,7 +150,7 @@ def plot(reader, title, consumers, producers, filename=None):
     ax.legend(loc='upper left', title=r"$\bf{Producers}$ and $\bf{Consumers}$")
     plt.grid(which='major', linestyle='dotted')
     ax.set(xlabel="Time",
-           ylabel="Energy (KWh)",
+           ylabel="Power (KW)",
            title=title)
 
     ax2 = ax.twinx()
@@ -158,7 +160,9 @@ def plot(reader, title, consumers, producers, filename=None):
              [ (x + y) / 2 for (x, y) in zip(val['Home'], val['Living Room']) ],
              label='Indoor', lw=0.8, color='blueviolet')
     ax2.plot(val['time'], val['Bedroom'], label='Bedroom', lw=0.8, color='orange')
+
     ax2.legend(loc='upper right', title=r'$\bf{Temperatures}$')
+
     ax2.set(ylabel="Temperature (°F)")
     ax2.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M"))
     ax2.xaxis.set_major_locator(mdates.HourLocator(interval=1))
@@ -180,6 +184,11 @@ def parse_args():
                         help='send the report')
     return parser.parse_args()
 
+def duration_string(duration):
+    if math.floor(duration / 60) == 0:
+        return "%dmin" % duration
+    return "%dh%02dmin" % (duration / 60, duration % 60)
+
 def main(argv):
     args = parse_args()
     config = configparser.ConfigParser()
@@ -189,7 +198,7 @@ def main(argv):
     sums = { k: 0 for k in ['imported', 'exported', 'produced', 'onpeak', 'offpeak' ] }
     producers=[ Producer(config[x]) for x in config['general']['producers'].split(',') ]
     consumers=[ Consumer(config[x]) for x in config['general']['consumers'].split(',') ]
-    res = { k: { 'sum':0, 'max':0 } for k in producers + consumers }
+    res = { k: { 'sum':0, 'max':0, 'time':0 } for k in producers + consumers }
     temps = [ ]
 
     reader = SensorLogReader(filename=args.file)
@@ -211,6 +220,8 @@ def main(argv):
 
         for item in producers + consumers:
             total = item.totalPower(current)
+            if total >= 0.1:
+                res[item]['time'] += 1
             res[item]['sum'] += total / 60
             res[item]['max'] = max(total, res[item]['max'])
 
@@ -234,17 +245,19 @@ def main(argv):
     report += "\n"
 
     for p in producers:
-        report += "%s: %.2f KWh (%d%%) - Max %.2f KWh\n" % \
+        report += "%s: %.2f KWh (%d%%) - Max %.2f KW - %s\n" % \
             (p.description, res[p]['sum'], \
-             (res[p]['sum'] / total) * 100, res[p]['max'])
+             (res[p]['sum'] / total) * 100, res[p]['max'],
+             duration_string(res[p]['time']))
     report += '\n'
 
     for c in list(sorted(consumers, key=lambda item: res[item]['sum'], reverse=True)):
         if res[c]['sum'] < 0.01:
             continue
-        report += "%s: %.2f KWh (%d%%) - Max %.2f KWh\n" % \
+        report += "%s: %.2f KWh (%d%%) - Max %.2f KW - %s\n" % \
             (c.description, res[c]['sum'], \
-             (res[c]['sum'] / total) * 100, res[c]['max'])
+             (res[c]['sum'] / total) * 100, res[c]['max'],
+             duration_string(res[c]['time']))
 
     title = "Daily report for " + reader.date.strftime("%A %B %d %Y")
     title = title.lstrip("0").replace(" 0", " ")
