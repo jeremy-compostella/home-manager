@@ -31,7 +31,7 @@ import os
 import sys
 import re
 
-from statistics import mean
+from statistics import median
 from math import floor
 from datetime import datetime
 from sensor_logger import SensorLogWriter
@@ -83,7 +83,7 @@ def main(argv):
         current = database[0]
         temp = floor(current['Outdoor Start'])
         rates = [ rate(x) for x in database if floor(x['Outdoor Start']) == temp ]
-        writer.writerow([ temp, mean(rates) ])
+        writer.writerow([ temp, median(rates) ])
         database = [ x for x in database if floor(x['Outdoor Start']) != temp]
 
 if __name__ == "__main__":
