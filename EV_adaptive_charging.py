@@ -35,9 +35,9 @@ from consumer import *
 from sensor import *
 from tools import *
 
-def logStatus(usage, ev):
-    actives = { k:v for (k, v) in usage.items() if k == 'net' or abs(v) > 0.1 }
-    s = ', '.join([ "%s: %.02f" % (x[0], x[1]) for x in actives.items() ])
+def log_state(usage, ev):
+    s = ', '.join([ f'{k}: {v:.2f}' for k, v in usage.items() \
+                    if k == 'net' or abs(v) > 0.1 ])
     if ev.isCharging():
         s += ", added: %.2f KWh" % ev.getAddedEnergy()
     debug(s)
@@ -83,7 +83,7 @@ def main():
                 time.sleep(15)
                 continue
 
-        logStatus(usage, ev)
+        log_state(usage, ev)
         available = (usage["net"] - ev.totalPower(usage)) * -1
 
         for c in consumers:
