@@ -75,7 +75,7 @@ def main():
                 header += sensor.read().keys()
             break
         except:
-            log("Read from sensor failed")
+            debug("Read from sensor failed")
             time.sleep(60)
 
     logger = SensorLogWriter(config['general']['sensor_db'], header)
@@ -88,7 +88,7 @@ def main():
                 row.update(sensor.read().items())
             logger.log(row)
         except:
-            log("Read from sensor failed")
+            debug("Read from sensor failed")
 
 if __name__ == "__main__":
     main()

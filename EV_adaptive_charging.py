@@ -40,7 +40,12 @@ def logStatus(usage, ev):
     s = ', '.join([ "%s: %.02f" % (x[0], x[1]) for x in actives.items() ])
     if ev.isCharging():
         s += ", added: %.2f KWh" % ev.getAddedEnergy()
-    log(s)
+    debug(s)
+
+def stop_charge_and_sleep(msg, ev, seconds):
+    debug(msg)
+    ev.stop()
+    time.sleep(seconds)
 
 def main():
     config, logger = init(os.path.splitext(__file__)[0]+'.log')
@@ -52,24 +57,18 @@ def main():
     weather = MyOpenWeather(config['OpenWeather'])
     vue = MyVue2(config['Emporia'])
 
-    log("Is ready to run")
+    debug("... is now ready to run")
     while True:
         if weather.isNightTime():
-            log("No solar production at night")
-            ev.stop()
-            time.sleep(60 * 5)
+            stop_charge_and_sleep("No solar production at night", ev, 60 * 5)
             continue
 
         if not ev.isConnected():
-            log("Waiting for car connection")
-            ev.stop()
-            time.sleep(15)
+            stop_charge_and_sleep("Waiting for car connection", ev, 15)
             continue
 
         if ev.isFullyCharged():
-            log("Fully charged, nothing to do")
-            ev.stop()
-            time.sleep(60)
+            stop_charge_and_sleep("Fully charged, nothing to do", ev, 60)
             continue
 
         entered_at = datetime.now()
@@ -90,7 +89,7 @@ def main():
         for c in consumers:
             if not c.isRunning(usage) and c.isAboutToStart():
                 available -= c.power[-1]
-                log("Anticipating need for %s" % c.name)
+                debug("Anticipating need for %s" % c.name)
 
         try:
             target = [ x for x in ev.power if x <= available ][-1]

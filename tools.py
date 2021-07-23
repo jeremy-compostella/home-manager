@@ -86,7 +86,7 @@ def init(log_file = None):
         return config, _logger
     return config
 
-def log(text):
+def debug(text):
     if _logger:
         _logger.debug(text)
 

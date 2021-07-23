@@ -71,7 +71,7 @@ def main():
     database = load_database("hvac_database.csv")
     saved = None
 
-    log("Is ready to run")
+    debug("... is now ready to run")
     while True:
         info = ecobee.programInfo(program)
 
