@@ -236,7 +236,7 @@ def main(argv):
         related.attach(alternative)
         alternative.attach(MIMEText(report.encode('utf-8'), 'plain', _charset='utf-8'))
 
-        plot_file = reader.filename.replace(".csv", "") + ".png"
+        plot_file = reader.filename.replace(".csv", "") + ".pdf"
         plot(reader, title, consumers, producers, filename=plot_file)
         with open(plot_file, "rb") as f:
             part = MIMEApplication(f.read(), Name=basename(plot_file))
