@@ -443,14 +443,18 @@ class MyWallBox(Consumer):
             self.stopCharging()
         self.setMaxChargingCurrent(self.getMinAvailableCurrent())
 
+    def powerToCurrent(self, power):
+        try:
+            cur = self.getMinAvailableCurrent() + len(self.power) - 1
+            return cur - next(i for i, p in enumerate(reversed(self.power)) if p <= power)
+        except StopIteration:
+            return 0
+
     def runWith(self, power):
-        if power == 0:
+        current = self.powerToCurrent(power)
+        if current == 0:
             return self.stop()
-        if power not in self.power:
-            raise ValueError("%f is not is not a valid power for this device" %
-                             power)
-        amp = self.power.index(power) + self.getMinAvailableCurrent()
         if not self.isCharging():
-            self.startCharging(amp)
+            self.startCharging(current)
         else:
-            self.setMaxChargingCurrent(amp)
+            self.setMaxChargingCurrent(current)
