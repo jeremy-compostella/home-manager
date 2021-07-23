@@ -60,7 +60,7 @@ def main():
     config, logger = init(os.path.splitext(__file__)[0]+'.log')
 
     if not 'adjustable_program' in config['Ecobee']:
-        sys.exit("Not adjustable program defined in the Ecobee section")
+        sys.exit("No adjustable program found in the Ecobee section")
 
     program = config['Ecobee']['adjustable_program']
 
