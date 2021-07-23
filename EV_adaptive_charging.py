@@ -47,7 +47,8 @@ def stop_charge_and_sleep(msg, ev, seconds):
     time.sleep(seconds)
 
 def main():
-    config, logger = init(os.path.splitext(__file__)[0]+'.log')
+    prefix = os.path.splitext(__file__)[0]
+    config, logger = init(prefix + '.log')
     ev = MyWallBox(config['Wallbox'], logger)
     consumers = []
     for c in config['general']['consumers'].split(','):
@@ -55,6 +56,7 @@ def main():
         consumers.append(cl(config[c]))
     weather = MyOpenWeather(config['OpenWeather'])
     vue = MyVue2(config['Emporia'])
+    utility = Utility(config['SRP'])
 
     debug("... is now ready to run")
     while True:
@@ -90,11 +92,16 @@ def main():
                 available -= c.power[-1]
                 debug("Anticipating need for %s" % c.name)
 
-        try:
-            target = [ x for x in ev.power if x <= available ][-1]
-        except IndexError:
-            target = 0
-        ev.runWith(target)
+        if not utility.isOnPeak():
+            settings = read_settings(prefix + '.ini',
+                                     { 'coefficient':1, 'minimal_charge':0 })
+            if ev.power[0] * settings.coefficient < available < ev.power[0]:
+                debug("%s: Enforcing minimal charge rate (%.02f KW)" %
+                      (policy, ev.power[0]))
+                available = ev.power[0]
+            available = max(available, settings.minimal_charge)
+
+        ev.runWith(available)
         time.sleep(15)
 
 if __name__ == "__main__":
