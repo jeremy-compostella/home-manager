@@ -39,9 +39,30 @@ def load_database(filename):
                                fieldnames=['temperature', 'rate'],
                                quoting=csv.QUOTE_NONNUMERIC))
 
-def estimate(database, outdoor, indoor, goal):
+def cannot_warm_up(weather):
+    bad = [ {'status':'Clouds', 'detailed status':'overcast clouds' },
+            {'status':'Thunderstorm' },
+            {'status':'Rain' },
+            {'status':'Mist' } ]
+    for d in bad:
+        if weather['status'] == d['status']:
+            if 'detailed status' in d:
+                if weather['detailed status'] == d['detailed status']:
+                    return True
+            else:
+                return True
+
+def estimate(database, weather, indoor, goal):
     item = None
     prev= None
+
+    outdoor = weather['outdoor temp']
+    if cannot_warm_up(weather):
+        debug("The weather is too bad to allow the air to warm up")
+        if outdoor <= goal + 10 and indoor <= goal + 7:
+            debug("The outdoor and indoor temperatures are low")
+            return 0
+
     if outdoor < database[0]['temperature']:
         item = database[0]
     elif outdoor > database[-1]['temperature']:
@@ -54,10 +75,15 @@ def estimate(database, outdoor, indoor, goal):
     rate = item['rate']
     if item['temperature'] != outdoor and prev:
         rate = (item['rate'] + prev['rate']) / 2
-    return (indoor - goal) * rate
+
+    minutes = (indoor - goal) * rate
+    if cannot_warm_up(weather):
+        minutes /= 2
+    return minutes
 
 def main():
-    config, logger = init(os.path.splitext(__file__)[0]+'.log')
+    prefix = os.path.splitext(__file__)[0]
+    config, logger = init(prefix + '.log')
 
     if not 'adjustable_program' in config['Ecobee']:
         sys.exit("No adjustable program found in the Ecobee section")
@@ -65,7 +91,6 @@ def main():
     program = config['Ecobee']['adjustable_program']
 
     ecobee = MyEcobee(config['Ecobee'])
-    ev = MyWallBox(config['Wallbox'], logger)
     weather = MyOpenWeather(config['OpenWeather'])
 
     database = load_database("hvac_database.csv")
@@ -80,9 +105,7 @@ def main():
                 ecobee.setProgramSchedule(program, info['start'], info['stop'])
                 notify("'%s' Program schedule restored" % program)
                 saved = None
-            continue
-
-        if not ev.isConnected() or ev.isFullyCharged():
+            wait_for_next_minute()
             continue
 
         if datetime.now() < info['start'] - timedelta(minutes=5) or \
@@ -91,12 +114,16 @@ def main():
             continue
 
         allocated = (info['stop'] - info['start']).seconds / 60
-        required = estimate(database, weather.read()['outdoor temp'],
-                            info['current'], info['target']) * .95
+
+        settings = read_settings(prefix + '.ini', { 'coefficient':1 })
+        required = estimate(database, weather.read(),
+                            info['current'], info['target']) * settings.coefficient
         if allocated > required:
             ecobee.setProgramSchedule(program, info['start'] + timedelta(minutes=30),
                                       info['stop'])
             notify("'%s' program schedule postponed by 30 minutes" % program)
+            debug("It should take %d minutes to go from %.01fF to %.01fF" %
+                  (required, info['current'], info['target']))
             if not saved:
                 saved = info
 
