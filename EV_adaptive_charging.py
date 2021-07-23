@@ -52,8 +52,10 @@ def main():
     ev = MyWallBox(config['Wallbox'], logger)
     consumers = []
     for c in config['general']['consumers'].split(','):
-        cl = eval(config[c]['class']) if 'class' in config[c] else Consumer
-        consumers.append(cl(config[c]))
+        if 'class' in config[c]:
+            consumers.append(globals()[config[c]['class']](config[c]))
+        else:
+            consumers.append(Consumer(config[c]))
     weather = MyOpenWeather(config['OpenWeather'])
     vue = MyVue2(config['Emporia'])
     utility = Utility(config['SRP'])
