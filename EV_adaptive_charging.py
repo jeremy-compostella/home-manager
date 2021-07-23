@@ -29,9 +29,8 @@
 import os
 import time
 
-from datetime import datetime, timedelta
-
 from consumer import *
+from datetime import datetime, timedelta
 from sensor import *
 from tools import *
 
