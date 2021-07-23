@@ -78,7 +78,7 @@ def init(log_file = None):
     config = configparser.ConfigParser()
     config.read("home.ini")
 
-    global mailer
+    global _mailer
     _mailer = _MyEmail(config['Email'])
     if log_file:
         global _logger
