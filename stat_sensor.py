@@ -193,7 +193,8 @@ def main(argv):
 
     report = "Temperature: Min %.1f F, Max %.1f F, Median %.1f F\n" % \
         (min(temps), max(temps), median(temps))
-    report +="Imported: %.2f KWh, Exported: %.2f\n" % (sums['imported'], sums['exported'])
+    report +="Imported: %.2f KWh, Exported: %.2f KWh\n" % \
+        (sums['imported'], sums['exported'])
     if sums['onpeak'] != 0:
         report += "On Peak: %.2f KWh (%d%%), Off Peak: %.02f KWh\n" % \
             (sums['onpeak'], (sums['onpeak'] / sums['imported']) * 100, \
