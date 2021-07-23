@@ -141,6 +141,8 @@ def parse_args():
     parser.add_argument('file', help='Data file')
     parser.add_argument('--plot', dest='plot', action='store_true',
                         help='Plot the computed data')
+    parser.add_argument('--plot-to-file', dest='plot_filename',
+                        help='Plot the computed data and save to FILE')
     parser.add_argument('--send-email', dest='send_email', action='store_true',
                         help='send the report')
     return parser.parse_args()
@@ -224,6 +226,8 @@ def main(argv):
     title = title.lstrip("0").replace(" 0", " ")
     if args.plot:
         plot(reader, title, consumers, producers)
+    elif args.plot_filename:
+        plot(reader, title, consumers, producers, filename=plot_filename)
     elif args.send_email:
         msg = MIMEMultipart('mixed')
         msg.preamble = 'This is a multi-part message in MIME format.'
