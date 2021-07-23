@@ -26,12 +26,12 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 # OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import configparser
 import logging
 import os
 import smtplib
 import time
 
+from configparser import ConfigParser
 from datetime import datetime
 from logging.handlers import TimedRotatingFileHandler
 from enum import IntEnum
@@ -97,7 +97,7 @@ class Utility:
         return len(found) == 1
 
 def init(log_file = None):
-    config = configparser.ConfigParser()
+    config = ConfigParser()
     config.read("home.ini")
 
     global _mailer
