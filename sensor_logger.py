@@ -65,8 +65,7 @@ def main():
 
     sensors = [ ]
     for s in config['general']['sensors'].split(','):
-        c = eval(config[s]['class'])
-        sensors.append(c(config[s]))
+        sensors.append(globals()[config[s]['class']](config[s]))
 
     while True:
         header = [ 'time' ]
