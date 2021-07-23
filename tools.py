@@ -32,6 +32,7 @@ import smtplib
 import time
 
 from configparser import ConfigParser
+from collections import namedtuple
 from datetime import datetime
 from logging.handlers import TimedRotatingFileHandler
 from email.mime.multipart import MIMEMultipart
@@ -127,3 +128,18 @@ def wait_for_next_minute():
     sleeptime = 60 - (t.second + t.microsecond/1000000.0)
     if sleeptime > 0:
         time.sleep(sleeptime)
+
+def read_settings(filename, defaults):
+    ret = defaults.copy()
+    Settings = namedtuple('Settings', ret.keys())
+    try:
+        config = ConfigParser()
+        config.read(filename)
+        if not 'settings' in config:
+            return Settings(**ret)
+        for key in list(ret.keys()):
+            if key in config['settings']:
+                ret[key] = float(config['settings'][key])
+    except:
+        pass
+    return Settings(**ret)
