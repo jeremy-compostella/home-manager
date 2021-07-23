@@ -37,7 +37,6 @@ from datetime import datetime
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from enum import IntEnum
 from os.path import basename, splitext, isfile
 from producer import *
 from statistics import median
@@ -75,28 +74,6 @@ class SensorLogReader(csv.DictReader):
                 except ValueError:
                     d[key] = value
         return d
-
-class Utility:
-    WEEKDAYS = IntEnum('Weekdays', 'mon tue wed thu fri sat sun', start=0)
-    rate = { k:0 for k in [ 'onpeak', 'offpeak', 'export' ] }
-
-    def __init__(self, config):
-        self.schedules = eval(config["schedule"])
-        self.config = config
-
-    def loadRate(self, date):
-        self.rate['onpeak'] = eval(self.config['onpeak'])[date.month - 1]
-        self.rate['offpeak'] = eval(self.config['offpeak'])[date.month - 1]
-        self.rate['export'] = eval(self.config['export'])
-
-    def isOnPeak(self, date):
-        if date.weekday() in [ self.WEEKDAYS.sat, self.WEEKDAYS.sun ]:
-            return False
-
-        sched_name=self.schedules[date.month - 1]
-        schedule=eval(self.config[sched_name])
-        found = [ x for x in schedule if date.hour >= x[0] and date.hour < x[1] ]
-        return len(found) == 1
 
 def get_sensors_and_label(val, items):
     sensors=[]
