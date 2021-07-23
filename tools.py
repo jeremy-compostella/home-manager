@@ -34,6 +34,8 @@ import time
 from configparser import ConfigParser
 from datetime import datetime
 from logging.handlers import TimedRotatingFileHandler
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from enum import IntEnum
 
 _mailer = None
