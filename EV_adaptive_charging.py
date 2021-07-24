@@ -49,7 +49,7 @@ def stop_charge_and_sleep(msg, ev, seconds):
 def main():
     prefix = os.path.splitext(__file__)[0]
     config, logger = init(prefix + '.log')
-    ev = MyWallBox(config['Wallbox'], logger)
+    ev = MyWallBox(config['Wallbox'])
     consumers = []
     for c in config['general']['consumers'].split(','):
         if 'class' in config[c]:

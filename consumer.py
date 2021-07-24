@@ -37,6 +37,7 @@ from pyecobee import *
 from statistics import mean
 from wallbox import Wallbox
 from stat_sensor import SensorLogReader
+from tools import *
 
 class Consumer:
     __validUpTo = None
@@ -318,7 +319,7 @@ class MyWallBox(Consumer):
             try:
                 return fun()
             except:
-                self.logger.warning("Unexpected error in __try")
+                debug("Unexpected error in %s.__try" % type(self).__name__)
                 time.sleep(5)
         raise Exception("Communication Error",
                         "Fail to communicate with Wallbox server")
@@ -329,9 +330,8 @@ class MyWallBox(Consumer):
             self.__try(lambda: self.w.authenticate())
             self.connectionExpiration = datetime.now() + timedelta(hours = 1)
 
-    def __init__(self, config, logger, chargerID = None):
+    def __init__(self, config, chargerID = None):
         Consumer.__init__(self, config)
-        self.logger = logger
         self.w = Wallbox(config["login"], config["password"], requestGetTimeout=30)
         self.__connect()
         if chargerID:
@@ -388,25 +388,25 @@ class MyWallBox(Consumer):
             self.__readStatus()
             if condition():
                 return
-            self.logger.debug("Waiting for '%s'", name)
+            debug("Waiting for '%s'" % name)
             time.sleep(3)
-        self.logger.warning("Giving up on '%s'", name)
+        debug("Giving up on '%s'" % name)
 
     def startCharging(self, maxCurrent = None):
         if self.isCharging():
             return
         if not self.isConnected():
-            self.logger.debug("Not connected, cannot charge")
+            debug("Not connected, cannot charge")
             return
         if maxCurrent:
             self.setMaxChargingCurrent(maxCurrent)
-        self.logger.debug("Start charging at %dA - %.2f KWh added",
-                          maxCurrent, self.getAddedEnergy())
+        debug("Start charging at %dA - %.2f KWh added" %
+              (maxCurrent, self.getAddedEnergy()))
         self.__try(lambda: self.w.resumeChargingSession(self.charger))
         self.__waitFor(lambda: self.isCharging(), "isCharging()", 30)
 
     def stopCharging(self):
-        self.logger.debug("Stop charging - %.2f KWh added", self.getAddedEnergy())
+        debug("Stop charging - %.2f KWh added" % self.getAddedEnergy())
         self.__try(lambda: self.w.pauseChargingSession(self.charger))
         self.__waitFor(lambda: not self.isCharging(), "not isCharging()", 40)
 
@@ -424,13 +424,12 @@ class MyWallBox(Consumer):
     def setMaxChargingCurrent(self, maxCurrent):
         if maxCurrent < self.getMinAvailableCurrent() or \
            maxCurrent > self.getMaxAvailableCurrent():
-            self.logger.warning("Out of bound maxCurrent")
+            debug("Out of bound maxCurrent")
             return
         if self.getMaxChargingCurrent() == maxCurrent:
             return
-        self.logger.debug("Adjusting from %dA to %dA - %.2f KWh added",
-                          self.getMaxChargingCurrent(), maxCurrent,
-                          self.getAddedEnergy())
+        debug("Adjusting from %dA to %dA - %.2f KWh added" %
+              (self.getMaxChargingCurrent(), maxCurrent, self.getAddedEnergy()))
         self.__try(lambda: self.w.setMaxChargingCurrent(self.charger, maxCurrent))
         self.__waitFor(lambda: (self.getMaxChargingCurrent() == maxCurrent),
                        "maxCurrent == %d" % (maxCurrent), 10)
