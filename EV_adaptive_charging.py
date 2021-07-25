@@ -62,7 +62,7 @@ def main():
     debug("... is now ready to run")
     while True:
         if not ev.isConnected():
-            stop_charge_and_sleep("Waiting for car connection", ev, 15)
+            stop_charge_and_sleep("Waiting for car connection", ev, 10)
             continue
 
         if ev.isFullyCharged():

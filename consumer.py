@@ -349,7 +349,7 @@ class MyWallBox(Consumer):
             return self.status
         self.__connect()
         self.status = self.__try(lambda: self.w.getChargerStatus(self.charger))
-        self.statusExpiration = datetime.now() + timedelta(seconds=15)
+        self.statusExpiration = datetime.now() + timedelta(seconds=3)
         return self.status
 
     def isConnected(self):
