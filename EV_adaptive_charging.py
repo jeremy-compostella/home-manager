@@ -56,16 +56,11 @@ def main():
             consumers.append(globals()[config[c]['class']](config[c]))
         else:
             consumers.append(Consumer(config[c]))
-    weather = MyOpenWeather(config['OpenWeather'])
     vue = MyVue2(config['Emporia'])
     utility = Utility(config['SRP'])
 
     debug("... is now ready to run")
     while True:
-        if weather.isNightTime():
-            stop_charge_and_sleep("No solar production at night", ev, 60 * 5)
-            continue
-
         if not ev.isConnected():
             stop_charge_and_sleep("Waiting for car connection", ev, 15)
             continue
