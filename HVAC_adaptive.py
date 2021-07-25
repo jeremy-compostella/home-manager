@@ -101,11 +101,12 @@ def main():
     while True:
         info = ecobee.programInfo(program)
 
+        if saved and datetime.now() > saved['stop']:
+            ecobee.setProgramSchedule(program, saved['start'], saved['stop'])
+            notify("'%s' Program schedule restored" % program)
+            saved = None
+
         if datetime.now() >= info['stop']:
-            if saved:
-                ecobee.setProgramSchedule(program, info['start'], info['stop'])
-                notify("'%s' Program schedule restored" % program)
-                saved = None
             wait_for_next_minute()
             continue
 
