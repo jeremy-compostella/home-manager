@@ -98,10 +98,12 @@ def main():
             settings = read_settings(prefix + '.ini',
                                      { 'coefficient':1, 'minimal_charge':0 })
             if ev.power[0] * settings.coefficient < available < ev.power[0]:
-                debug("%s: Enforcing minimal charge rate (%.02f KW)" %
-                      (policy, ev.power[0]))
+                debug("Enforcing charge rate of %.02f KW" % ev.power[0])
                 available = ev.power[0]
-            available = max(available, settings.minimal_charge)
+            if settings.minimal_charge > 0 and available < settings.minimal_charge:
+                debug("Enforcing minimal charge rate of %.02f KW" %
+                      settings.minimal_charge)
+                available = settings.minimal_charge
 
         ev.runWith(available)
         time.sleep(15)
