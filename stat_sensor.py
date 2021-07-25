@@ -100,7 +100,7 @@ def plot(reader, title, consumers, producers, filename=None):
     ax.stackplot(val['time'], [ x - y for (x, y) in zip(val['net'], val['solar']) ],
                  labels=["Other"],
                  colors=['lightgrey', "tab:blue", "gold", "tab:cyan", "tab:pink",
-                         "tab:red", "tab:green"])
+                         "tab:red", "tab:green", "tab:orange"])
 
     (sensors, labels) = get_sensors_and_label(val, consumers)
     ax.stackplot(val['time'], sensors, labels=labels)
