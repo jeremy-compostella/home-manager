@@ -41,6 +41,7 @@ def load_database(filename):
 
 def cannot_warm_up(weather):
     bad = [ {'status':'Clouds', 'detailed status':'overcast clouds' },
+            {'status':'Clouds', 'detailed status':'broken clouds' },
             {'status':'Thunderstorm' },
             {'status':'Rain' },
             {'status':'Mist' } ]
@@ -59,7 +60,7 @@ def estimate(database, weather, indoor, goal):
     outdoor = weather['outdoor temp']
     if cannot_warm_up(weather):
         debug("The weather is too bad to allow the air to warm up")
-        if outdoor <= goal + 10 and indoor <= goal + 7:
+        if outdoor <= goal + 10 and indoor <= goal + 8:
             debug("The outdoor and indoor temperatures are low")
             return 0
 
