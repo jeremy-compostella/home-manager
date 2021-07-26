@@ -139,7 +139,10 @@ def read_settings(filename, defaults):
             return Settings(**ret)
         for key in list(ret.keys()):
             if key in config['settings']:
-                ret[key] = float(config['settings'][key])
+                try:
+                    ret[key] = float(config['settings'][key])
+                except ValueError:
+                    ret[key] = bool(config['settings'][key])
     except:
         pass
     return Settings(**ret)
