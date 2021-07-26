@@ -46,6 +46,10 @@ def stop_charge_and_sleep(msg, ev, seconds):
     ev.stop()
     time.sleep(seconds)
 
+DEFAULT_SETTINGS = { 'coefficient':1,
+                     'minimal_charge':0,
+                     'maximize':False }
+
 def main():
     prefix = os.path.splitext(__file__)[0]
     config, logger = init(prefix + '.log')
@@ -89,9 +93,9 @@ def main():
                 available -= c.power[-1]
                 debug("Anticipating need for %s" % c.name)
 
+        settings = read_settings(prefix + '.ini', DEFAULT_SETTINGS)
+        maximize = False
         if not utility.isOnPeak():
-            settings = read_settings(prefix + '.ini',
-                                     { 'coefficient':1, 'minimal_charge':0 })
             if ev.power[0] * settings.coefficient < available < ev.power[0]:
                 debug("Enforcing charge rate of %.02f KW" % ev.power[0])
                 available = ev.power[0]
@@ -99,8 +103,9 @@ def main():
                 debug("Enforcing minimal charge rate of %.02f KW" %
                       settings.minimal_charge)
                 available = settings.minimal_charge
+            maximize = settings.maximize
 
-        ev.runWith(available)
+        ev.runWith(available, maximize=maximize)
         time.sleep(15)
 
 if __name__ == "__main__":

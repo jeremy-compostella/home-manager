@@ -442,15 +442,22 @@ class MyWallBox(Consumer):
             self.stopCharging()
         self.setMaxChargingCurrent(self.getMinAvailableCurrent())
 
-    def powerToCurrent(self, power):
+    def powerToCurrent(self, power, maximize=False):
         try:
-            cur = self.getMinAvailableCurrent() + len(self.power) - 1
-            return cur - next(i for i, p in enumerate(reversed(self.power)) if p <= power)
+            cur = next(i for i, p in enumerate(reversed(self.power)) if p <= power)
+            cur = len(self.power) - cur - 1
         except StopIteration:
             return 0
+        if maximize:
+            try:
+                if power - self.power[cur] > self.power[cur + 1] - power:
+                    cur += 1
+            except IndexError:
+                pass
+        return cur + self.getMinAvailableCurrent()
 
-    def runWith(self, power):
-        current = self.powerToCurrent(power)
+    def runWith(self, power, maximize=False):
+        current = self.powerToCurrent(power, maximize)
         if current == 0:
             return self.stop()
         if not self.isCharging():
