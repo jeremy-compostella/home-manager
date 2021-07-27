@@ -124,14 +124,6 @@ class Consumer:
                 return True
         return False
 
-class MyPoolPump(Consumer):
-    def __init__(self, config):
-        Consumer.__init__(self, config)
-
-class MyWaterHeater(Consumer):
-    def __init__(self, config):
-        Consumer.__init__(self, config)
-
 def minutes_to_datetime(minutes):
     return datetime.now().replace(hour=floor(minutes/60),
                                   minute=minutes % 60,
