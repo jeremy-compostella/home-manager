@@ -1,10 +1,10 @@
-*home-manager* is a little project I originally created to charge my EV (Electric Vehicle) only with the energy I produced with my solar panels. It is written in python since most of the libraries I need to use are in python. I have no intention to thoroughly document this project but I want to share it for inspiration purposes. This project is evolving into something wider than adaptive charging my car as I am adding dysfunctional detection of different devices in my home.
+*home-manager* is a little project I originally created to charge my EV (Electric Vehicle) only using the energy my solar panels produce. I live in Phoenix, Arizona where the electricity is mostly generated from fossil energy and I want to maximize the use of my solar production to minimize my environmental impact. I have no intention to thoroughly document or make it very generic but I want to share it for inspiration purposes. Now that EV charging is working fantastically well, This project is evolving into something wider as I am adding dysfunctional device detection and adaptive thermostat configuration based on weather condition and thermal properties of my home.
 
-Adaptive Charging is the first use-case I hit that I could not resolve with a simple device schedule because the solar panels production is intermittent and unstable (even in Phoenix, Arizona).  Also, my electricity consumption is also unpredictable. For instance, I could decide to bake something at the last minute which is going to use a significant amount of my solar panels production and I want the EV charging to adapt accordingly without any manual intervention. The benefit of adaptive charging is that it also allows me to maximize the use of my solar panels production.
+Adaptive Charging is the first use-case I hit that I could not resolve with a simple schedule because the solar panels production is intermittent and unstable (even in Phoenix, Arizona).  Also, my electricity consumption is obviously unpredictable asI could decide to bake something at the last minute and it is going to use a significant amount of my solar panels production. Hence, I want my EV charging to adapt accordingly without any manual intervention.
 
-In order to make decisions, I needed data. By data I mean accurate and instantaneous power production and consumption information. I went with the [[https://www.emporiaenergy.com/][Emporia Gen 2 Vue]] sensors that I installed in my electrical panel. Emporia does have an official API but it works pretty well with the [[https://pypi.org/project/pyemvue/][pyemvue]] python module.
+In order to make decisions, I needed data. By data I mean accurate and instantaneous power production and consumption information. I went with the [[https://www.emporiaenergy.com/][Emporia Gen 2 Vue]] sensors that I installed in my electrical panel. Emporia does not have an official API but it actually works pretty well with the [[https://pypi.org/project/pyemvue/][pyemvue]] python module.
 
-To charge my EV, I installed a [[https://wallbox.com/en_us/pulsar-plus-40a?utm_source=paid&utm_medium=Google_ads&utm_campaign=product40a&gclid=CjwKCAjwuIWHBhBDEiwACXQYsWI22s6DLL3oQDEN3hM_MHOoMEmj3jA08yWwUDRiWwtYaZAQx4RpZhoCK_oQAvD_BwE][Wallbox Pulsar Plus]] EV level 2 charger. The main reason is that this EV charger is adjustable from 6A up to 40A. Wallbox does not offer an official API but it works pretty well with the [[https://pypi.org/project/wallbox/][wallbox]] python module.
+To charge my EV, I installed a [[https://wallbox.com/en_us/pulsar-plus-40a?utm_source=paid&utm_medium=Google_ads&utm_campaign=product40a&gclid=CjwKCAjwuIWHBhBDEiwACXQYsWI22s6DLL3oQDEN3hM_MHOoMEmj3jA08yWwUDRiWwtYaZAQx4RpZhoCK_oQAvD_BwE][Wallbox Pulsar Plus]] EV level 2 charger. The main reason is that this EV charger is adjustable from 6A up to 40A. Wallbox does not offer any official API but it works pretty well with the [[https://pypi.org/project/wallbox/][wallbox]] python module.
 
 My [[EV_adaptive_charging.py][EV_adaptive_charging]] service is running on a [[https://www.raspberrypi.org/][Raspberry Pi]]. Its implementation is rather simple: If my solar panels are producing, the EV is plugged in and the EV is not fully charged, it computes the amount of energy which can be use to charge the EV and adapt the charge accordingly. Because changing the charging rate or stopping the charge is a slow operation (up to one minute), I also introduced a consumption prediction for the most significant appliances such as the Water Heater, the A/C or the pool pump in order to anticipate their need and smooth the transition.
 
@@ -17,7 +17,7 @@ _The software architecture is simple_:
    - The [[EV_adaptive_charging.py][EV_adaptive_charging]] service briefly described above charge the EV depending on production and consumption data (see below for more details).
    - The [[sensor_logger.py][sensor_logger]] service logs all the sensors every minute and in a daily CSV file
    - The [[health_monitor.py][health_monitor]] service is the script where I implement dysfunctional appliance detection is my home. I recently ran into air handler issues and Pool filter issue which I could have clearly detected sooner with a simple script.
-   - The  [[HVAC_adaptive.py][HVAC_adaptive]] service adjusts one of my thermostat program to free as much power bandwidth as possible. This service postpones this particular thermostat program if it estimates that it will take less time to reach the target temperature. The estimation is based on a database built out of the thermal property of my home derived from the `sensor.csv' files constructed by the `sensor_logger' service.
+   - The  [[HVAC_adaptive.py][HVAC_adaptive]] service adjusts one of my thermostat program to free as much power bandwidth as possible. This service postpones this particular thermostat program if it estimates that it will take less time to reach the target temperature. The estimation is based on a database built out of the thermal property of my home derived from the ~sensor.csv~ files constructed by the  [[sensor_logger.py][sensor_logger]]  service.
 3. The tools:
    - the [[stat_sensor.py][stat_sensor]] script that I use to process the csv files created by the [[sensor_logger.py][sensor_logger]] service and send me a daily report.
 4. [[./home.ini][home.ini]] the configuration file
@@ -36,6 +36,17 @@ This service charges an EV depending on production and consumption data. By defa
 - ~maximize~: by default it is equal to ~False~. If this setting is set to True  the EV charger maximizes the available power usage. For example: with an available power of 1.56 KW the EV charger charges at 6A which mean 1.44KW. However, If ~maximize~ is True, it charges at 7A (1.68 KW) because 1.56 KW is closer to 1.68 KW than to 1.44 KW.
 
 **  [[stat_sensor.py][stat_sensor]]
+
+I call this script from ~crontab~ to generate and send myself daily and monthly reports:
+
+#+begin_src python
+  # Daily report
+  59 23 * * * sleep 10 && /bin/python3 /home/pi/stat_sensor.py --send-email
+
+  # Monthly report
+  10 0 1 * * /bin/python3 /home/pi/stat_sensor.py --files sensor.csv.$(date +%Y%m --date='15 minutes ago') --send-email
+#+end_src
+
 Here is an example daily report generated by the [[stat_sensor.py][stat_sensor]] script. It interestingly shows that despite an usually bad day in term of solar energy production (cloudy day), the system still managed to put 12.60 KWh in charging EV without getting any of it from the grid.
 
 *Daily report for Saturday July 3 2021*
