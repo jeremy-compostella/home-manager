@@ -120,6 +120,7 @@ def main():
         settings = read_settings(prefix + '.ini', { 'coefficient':1 })
         required = estimate(database, weather.read(),
                             info['current'], info['target']) * settings.coefficient
+        required = round(required / 30) * 30
         if allocated > required:
             ecobee.setProgramSchedule(program, info['start'] + timedelta(minutes=30),
                                       info['stop'])
