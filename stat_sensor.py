@@ -30,6 +30,7 @@ import argparse
 import csv
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
+import re
 import sys
 
 from consumer import *
@@ -138,7 +139,9 @@ def plot(reader, title, consumers, producers, filename=None):
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Process FILE and compute a report.')
-    parser.add_argument('file', help='Data file')
+    parser.add_argument('--file', dest='file', help='Data file')
+    parser.add_argument('--files', dest='prefix',
+                        help='Build report for files prefixed by PREFIX')
     parser.add_argument('--plot', dest='plot', action='store_true',
                         help='Plot the computed data')
     parser.add_argument('--plot-to-file', dest='plot_filename',
@@ -152,19 +155,12 @@ def duration_string(duration):
         return "%dmin" % duration
     return "%dh%02dmin" % (duration / 60, duration % 60)
 
-def main(argv):
-    args = parse_args()
-
-    config = init()
-
-    utility = Utility(config['SRP'])
+def compute_for(filename, utility, producers, consumers):
     sums = { k: 0 for k in ['imported', 'exported', 'produced', 'onpeak', 'offpeak' ] }
-    producers=[ Producer(config[x]) for x in config['general']['producers'].split(',') ]
-    consumers=[ Consumer(config[x]) for x in config['general']['consumers'].split(',') ]
     res = { k: { 'sum':0, 'max':0, 'time':0 } for k in producers + consumers }
     temps = [ ]
 
-    reader = SensorLogReader(filename=args.file)
+    reader = SensorLogReader(filename=filename)
     utility.loadRate(next(iter(reader))['time'])
     for current in iter(reader):
         temps.append(current['outdoor temp'])
@@ -187,48 +183,92 @@ def main(argv):
                 res[item]['time'] += 1
             res[item]['sum'] += total / 60
             res[item]['max'] = max(total, res[item]['max'])
+    return sums, res, temps, reader.date
 
+def build_report(sums, res, temps, utility, producers, consumers):
     total = sum([ res[p]['sum'] for p in producers ]) - \
         sums['exported'] + sums['imported']
 
-    report = "Temperature: Min %.1f F, Max %.1f F, Median %.1f F\n" % \
+    report = "Temperature: Min %.1f°F, Max %.1f°F, Median %.1f°F\n" % \
         (min(temps), max(temps), median(temps))
-    report +="Imported: %.2f KWh, Exported: %.2f KWh\n" % \
-        (sums['imported'], sums['exported'])
+    report += "\n"
+    report += "Summary:\n"
+    report += "- Total consumption: %.2f KWh - %.2f KWh (%d%%) from local production\n" % \
+        (total, total - sums['imported'],
+         (total - sums['imported']) / total * 100)
+    report +="- Imported: %.2f KWh (%d%%), Exported: %.2f KWh\n" % \
+        (sums['imported'], sums['imported']/total*100, sums['exported'])
     if sums['onpeak'] != 0:
-        report += "On Peak: %.2f KWh (%d%%), Off Peak: %.02f KWh\n" % \
+        report += "- On Peak: %.2f KWh (%d%%), Off Peak: %.02f KWh\n" % \
             (sums['onpeak'], (sums['onpeak'] / sums['imported']) * 100, \
              sums['offpeak'])
-    report += "Total consumption: %.2f KWh\n" % total
     cost = ((sums['offpeak'] * utility.rate["offpeak"]) +
             (sums['onpeak'] * utility.rate["onpeak"]) -
             (sums['exported'] * utility.rate["export"]))
-    report += "Cost: %.2f USD (%.2f USD saved compared to EZ-3)\n" % \
+    report += "- Cost: %.2f USD (%.2f USD saved compared to EZ-3)\n" % \
         (cost, ((total - sums['onpeak']) * .0829 + \
                 (sums['onpeak'] * .2895)) - cost)
     report += "\n"
 
+    report += "Producer(s):\n"
     for p in producers:
-        report += "%s: %.2f KWh (%d%%) - Max %.2f KW - %s\n" % \
+        report += "- %s: %.2f KWh (%d%%) - Max %.2f KW - %s\n" % \
             (p.description, res[p]['sum'], \
              (res[p]['sum'] / total) * 100, res[p]['max'],
              duration_string(res[p]['time']))
     report += '\n'
 
+    report += "Consumer(s):\n"
     for c in list(sorted(consumers, key=lambda item: res[item]['sum'], reverse=True)):
         if res[c]['sum'] < 0.01:
             continue
-        report += "%s: %.2f KWh (%d%%) - Max %.2f KW - %s\n" % \
+        report += "- %s: %.2f KWh (%d%%) - Max %.2f KW - %s\n" % \
             (c.description, res[c]['sum'], \
              (res[c]['sum'] / total) * 100, res[c]['max'],
              duration_string(res[c]['time']))
+    return report
 
-    title = "Daily report for " + reader.date.strftime("%A %B %d %Y")
+def main(argv):
+    args = parse_args()
+
+    config = init()
+
+    utility = Utility(config['SRP'])
+    producers=[ Producer(config[x]) for x in config['general']['producers'].split(',') ]
+    consumers=[ Consumer(config[x]) for x in config['general']['consumers'].split(',') ]
+
+    sums = res = temps = first = last = date = None
+    if args.prefix:
+        pattern = re.compile("^%s.*$" % args.prefix)
+        for filename in os.listdir("."):
+            if not pattern.search(filename):
+                continue
+            s, r, t, d = compute_for(filename, utility, producers, consumers)
+            if not sums:
+                sums, res, temps, date = s, r, t, d
+                first = last = d
+            else:
+                sums = { k:v + sums[k] for k, v in s.items() }
+                res = { k:{ 'time':v['time'] + res[k]['time'],
+                            'sum':v['sum'] + res[k]['sum'],
+                            'max':max(v['max'], res[k]['max']) }
+                        for k, v in r.items() }
+                temps += t
+                first = min(d, first)
+                last = max(d, last)
+        title = "Report for %s - %s" % (first.strftime("%A %B %d %Y"),
+                                                last.strftime("%A %B %d %Y"))
+    else:
+        sums, res, temps, date = compute_for(args.file, utility, producers, consumers)
+        title = "Daily report for " + date.strftime("%A %B %d %Y")
+
+    report = build_report(sums, res, temps, utility, producers, consumers)
     title = title.lstrip("0").replace(" 0", " ")
     if args.plot:
-        plot(reader, title, consumers, producers)
+        plot(SensorLogReader(filename=args.file), title, consumers, producers)
     elif args.plot_filename:
-        plot(reader, title, consumers, producers, filename=plot_filename)
+        plot(SensorLogReader(filename=args.file), title, consumers, producers,
+             filename=args.plot_filename)
     elif args.send_email:
         msg = MIMEMultipart('mixed')
         msg.preamble = 'This is a multi-part message in MIME format.'
@@ -241,12 +281,15 @@ def main(argv):
         related.attach(alternative)
         alternative.attach(MIMEText(report.encode('utf-8'), 'plain', _charset='utf-8'))
 
-        plot_file = reader.filename.replace(".csv", "") + ".pdf"
-        plot(reader, title, consumers, producers, filename=plot_file)
-        with open(plot_file, "rb") as f:
-            part = MIMEApplication(f.read(), Name=basename(plot_file))
-        part['Content-Disposition'] = 'attachment; filename="%s"' % basename(plot_file)
-        msg.attach(part)
+        if not args.prefix:
+            reader = SensorLogReader(filename=args.file)
+            plot_file = reader.filename.replace(".csv", "") + ".pdf"
+            plot(reader, title, consumers, producers, filename=plot_file)
+            with open(plot_file, "rb") as f:
+                part = MIMEApplication(f.read(), Name=basename(plot_file))
+            part['Content-Disposition'] = 'attachment; filename="%s"' % \
+                basename(plot_file)
+            msg.attach(part)
 
         sendEmail(msg)
     else:
