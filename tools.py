@@ -29,6 +29,7 @@
 import logging
 import os
 import smtplib
+import shelve
 import time
 
 from configparser import ConfigParser
@@ -162,3 +163,6 @@ def read_settings(filename, defaults):
 
 def get_utility():
     return _utility
+
+def get_storage():
+    return shelve.open('storage', protocol=2)

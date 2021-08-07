@@ -25,7 +25,6 @@
 # OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import pytz
-import shelve
 import time
 import sensor
 import math
@@ -138,17 +137,15 @@ class MyEcobee(Sensor, Consumer):
 
     def __refreshTokens(self):
         self.ecobee.refresh_tokens()
-        db = shelve.open(self.config["shelve_db"], protocol=2)
-        db[self.config["name"]] = self.ecobee
-        db.close()
+        with get_storage() as db:
+            db[self.config["name"]] = self.ecobee
 
     def __init__(self, config):
         Consumer.__init__(self, config)
         self.config = config
         try:
-            db = shelve.open(config["shelve_db"], protocol=2)
-            ecobee = db[config["name"]]
-            db.close()
+            with get_storage() as db:
+                ecobee = db[config["name"]]
         except KeyError:
             print("KeyError")
             return
