@@ -60,6 +60,7 @@ class MyOpenWeather(Sensor):
         if obs:
             w = obs.weather
             self.cache = { 'outdoor temp': w.temperature(unit='fahrenheit')['temp'],
+                           'humidity':w.humidity,
                            'status':w.status,
                            'detailed status':w.detailed_status }
         return self.cache
