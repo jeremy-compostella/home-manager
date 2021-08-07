@@ -47,9 +47,9 @@ class _MyEmail:
     def __init__(self, config):
         self.config = config
 
-    def send(self, msg):
+    def send(self, msg, level = 'notify'):
         msg['From'] = self.config['from']
-        msg['To'] = self.config['to']
+        msg['To'] = self.config[level]
 
         server = smtplib.SMTP_SSL(self.config['server'],
                                   int(self.config['port']),
@@ -58,14 +58,14 @@ class _MyEmail:
         server.login(self.config['login'], self.config['password'])
         server.sendmail(msg['From'], msg['To'], msg.as_string())
 
-    def sendMIMEText(self, subject, body = ''):
+    def sendMIMEText(self, subject, body = '', level = 'notify'):
         msg = MIMEMultipart('related')
         msg.preamble = 'This is a multi-part message in MIME format.'
         msg['Subject'] = subject
         alternative = MIMEMultipart('alternative')
         msg.attach(alternative)
         alternative.attach(MIMEText(body.encode('utf-8'), 'plain', _charset='utf-8'))
-        self.send(msg)
+        self.send(msg, level = level)
 
 def _create_logger(filename):
     name = os.path.splitext(os.path.basename(filename))[0].replace("_", " ")
@@ -118,10 +118,20 @@ def debug(text):
     if _logger:
         _logger.debug(text)
 
-def notify(text):
+def __warn(text, level = 'notify'):
     if _logger:
         _logger.warning(text)
-    _mailer.sendMIMEText(text)
+    try:
+        _mailer.sendMIMEText(text, level = level)
+    except:
+        debug("Failed to send an email with '%s'" % text)
+        pass
+
+def notify(text):
+    __warn(text)
+
+def alert(text):
+    __warn(text, level = 'alert')
 
 def sendEmail(msg):
     _mailer.send(msg)
