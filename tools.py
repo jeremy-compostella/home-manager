@@ -39,8 +39,9 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from enum import IntEnum
 
-_mailer = None
-_logger = None
+_mailer  = None
+_logger  = None
+_utility = None
 
 class _MyEmail:
     def __init__(self, config):
@@ -108,7 +109,9 @@ def init(log_file = None):
     if log_file:
         global _logger
         _logger = _create_logger(log_file)
-        return config, _logger
+    if 'utility' in config['general']:
+        global _utility
+        _utility = Utility(config[config['general']['utility']])
     return config
 
 def debug(text):
@@ -146,3 +149,6 @@ def read_settings(filename, defaults):
     except:
         pass
     return Settings(**ret)
+
+def get_utility():
+    return _utility

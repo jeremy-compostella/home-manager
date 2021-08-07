@@ -84,7 +84,7 @@ def estimate(database, weather, indoor, goal):
 
 def main():
     prefix = os.path.splitext(__file__)[0]
-    config, logger = init(prefix + '.log')
+    config = init(prefix + '.log')
 
     if not 'adjustable_program' in config['Ecobee']:
         sys.exit("No adjustable program found in the Ecobee section")

@@ -52,7 +52,7 @@ DEFAULT_SETTINGS = { 'coefficient':1,
 
 def main():
     prefix = os.path.splitext(__file__)[0]
-    config, logger = init(prefix + '.log')
+    config = init(prefix + '.log')
     ev = MyWallBox(config['Wallbox'])
     consumers = []
     for c in config['general']['consumers'].split(','):
@@ -61,8 +61,7 @@ def main():
         else:
             consumers.append(Consumer(config[c]))
     vue = MyVue2(config['Emporia'])
-    utility = Utility(config['SRP'])
-
+    utility = get_utility()
     debug("... is now ready to run")
     while True:
         if not ev.isConnected():

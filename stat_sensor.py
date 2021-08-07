@@ -233,7 +233,7 @@ def main(argv):
 
     config = init()
 
-    utility = Utility(config['SRP'])
+    utility = get_utility()
     producers=[ Producer(config[x]) for x in config['general']['producers'].split(',') ]
     consumers=[ Consumer(config[x]) for x in config['general']['consumers'].split(',') ]
 
