@@ -33,6 +33,7 @@ from datetime import datetime, timedelta
 from pyemvue import PyEmVue
 from pyemvue.enums import Scale, Unit
 from wirelesstagpy import WirelessTags
+from multiprocessing.connection import Client
 
 class Sensor:
     def read():
@@ -156,3 +157,23 @@ class MyWirelessTag(Sensor):
         for uuid, tag in self.api.load_tags().items():
             value[tag.name] = tag.temperature * 1.8 + 32
         return value
+
+class CarData(Sensor):
+    def __init__(self, config):
+        self.address = (config['host'], int(config['port']))
+        self.__datetime = datetime(1970, 1, 1)
+        self.__cache = None
+
+    def read(self):
+        try:
+            data = Client(self.address).recv()
+            if data:
+                self.__datetime = data.pop('time')
+                self.__cache = data
+        except:
+            pass
+        return self.__cache
+
+    @property
+    def datetime(self):
+        return self.__datetime

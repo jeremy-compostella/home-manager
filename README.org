@@ -18,6 +18,7 @@ _The software architecture is simple_:
    - The [[sensor_logger.py][sensor_logger]] service logs all the sensors every minute and in a daily CSV file
    - The [[health_monitor.py][health_monitor]] service is the script where I implement dysfunctional appliance detection is my home. I recently ran into air handler issues and Pool filter issue which I could have clearly detected sooner with a simple script.
    - The  [[HVAC_adaptive.py][HVAC_adaptive]] service adjusts one of my thermostat program to free as much power bandwidth as possible. This service postpones this particular thermostat program if it estimates that it will take less time to reach the target temperature. The estimation is based on a database built out of the thermal property of my home derived from the ~sensor.csv~ files constructed by the  [[sensor_logger.py][sensor_logger]]  service.
+   - The [[car_data_sensor.py][car_data_sensor]] service collect data from the car sitting in my garage using a Bluetooth ELM27 OBD adapter. This service exposes the collected information through a TCP/IPv4 socket for other services to consume.
 3. The tools:
    - the [[stat_sensor.py][stat_sensor]] script that I use to process the csv files created by the [[sensor_logger.py][sensor_logger]] service and send me a daily report.
 4. [[./home.ini][home.ini]] the configuration file
