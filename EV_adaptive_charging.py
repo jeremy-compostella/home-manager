@@ -103,8 +103,11 @@ def main():
                 available = settings.minimal_charge
             maximize = settings.maximize
 
+        entered_at = datetime.now()
         ev.runWith(available, maximize=maximize)
-        time.sleep(15)
+        remaining = 15 - (datetime.now() - entered_at).seconds
+        if (remaining > 0):
+            time.sleep(remaining)
 
 if __name__ == "__main__":
     main()
