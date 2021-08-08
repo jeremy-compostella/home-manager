@@ -333,6 +333,9 @@ class MyWallBox(Consumer):
             self.charger = chargers[0]
         w_amp = range(self.getMinAvailableCurrent(), self.getMaxAvailableCurrent())
         self._power = [ i * 240 / 1000 for i in w_amp ]
+        if 'current_power' in config:
+            for current, power in eval(config['current_power']).items():
+                self._power[current - self.getMinAvailableCurrent()] = power
 
     def __readStatus(self):
         if self.status and datetime.now() < self.statusExpiration:
