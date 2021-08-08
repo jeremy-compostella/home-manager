@@ -27,7 +27,6 @@
 # OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import argparse
-import csv
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import re
@@ -38,48 +37,17 @@ from datetime import datetime
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from os.path import basename, splitext, isfile
+from os.path import basename
 from producer import *
 from statistics import median
 from tools import *
-
-class SensorLogReader(csv.DictReader):
-    DEFAULT_FILENAME="sensor.csv"
-    date = None
-
-    def __init__(self, date=None, filename=None):
-        if not filename:
-            if date:
-                filename = self.DEFAULT_FILENAME + "." + date.strftime("%Y%m%d")
-            else:
-                filename = self.DEFAULT_FILENAME
-        self.filename = filename
-        if not isfile(filename):
-            raise FileNotFoundError()
-
-    def __iter__(self):
-        f = open(self.filename, 'r')
-        csv.DictReader.__init__(self, f)
-        return self
-
-    def __next__(self):
-        d = csv.DictReader.__next__(self)
-        for key, value in d.items():
-            if key == 'time':
-                d[key] = datetime.strptime(value, "%m/%d/%Y %H:%M:%S")
-                if not self.date:
-                    self.date= d[key]
-            else:
-                try:
-                    d[key] = float(value)
-                except ValueError:
-                    d[key] = value
-        return d
 
 def get_sensors_and_label(val, items):
     sensors=[]
     labels=[]
     for item in items:
+        if item.description == 'Other':
+            continue
         for sensor in item.sensors:
             sensors.append([ abs(x) for x in val[sensor] ])
             description = item.description
@@ -153,17 +121,25 @@ def parse_args():
 def duration_string(duration):
     if math.floor(duration / 60) == 0:
         return "%dmin" % duration
-    return "%dh%02dmin" % (duration / 60, duration % 60)
+    if math.floor(duration / (24 * 60)) == 0:
+        return "%dh%02dmin" % (duration / 60, duration % 60)
+    days = duration / (24 * 60)
+    duration -= floor(days) * 24 * 60
+    return "%dd%dh%02dmin" % (days, duration / 60, duration % 60)
 
 def compute_for(filename, utility, producers, consumers):
     sums = { k: 0 for k in ['imported', 'exported', 'produced', 'onpeak', 'offpeak' ] }
     res = { k: { 'sum':0, 'max':0, 'time':0 } for k in producers + consumers }
-    temps = [ ]
+    sensor = { 'outdoor temp':[], 'humidity':[],
+               'Home':[], 'Pool thermometer':[],
+               'EV SoC':[], 'EV mileage':[] }
 
     reader = SensorLogReader(filename=filename)
     utility.loadRate(next(iter(reader))['time'])
     for current in iter(reader):
-        temps.append(current['outdoor temp'])
+        for key in sensor.keys():
+            if key in current:
+                sensor[key].append(current[key])
 
         date = current["time"]
 
@@ -183,34 +159,59 @@ def compute_for(filename, utility, producers, consumers):
                 res[item]['time'] += 1
             res[item]['sum'] += total / 60
             res[item]['max'] = max(total, res[item]['max'])
-    return sums, res, temps, reader.date
+    return sums, res, sensor, reader.date
 
-def build_report(sums, res, temps, utility, producers, consumers):
+def build_report(sums, res, sensor, utility, producers, consumers):
     total = sum([ res[p]['sum'] for p in producers ]) - \
         sums['exported'] + sums['imported']
 
-    report = "Temperature: Min %.1f°F, Max %.1f°F, Median %.1f°F\n" % \
-        (min(temps), max(temps), median(temps))
+    report = "Temperature(s):\n"
+    if 'outdoor temp' in sensor:
+        report += "- Outdoor: Min %.1f°F, Max %.1f°F, Median %.1f°F\n" % \
+            (min(sensor['outdoor temp']), max(sensor['outdoor temp']),
+             median(sensor['outdoor temp']))
+    if 'humidity' in sensor and sensor['humidity']:
+        report += "- Humidity: Min %d%%, Max %d%%, Median %.1f%%\n" % \
+            (min(sensor['humidity']), max(sensor['humidity']),
+             median(sensor['humidity']))
+    if 'Home' in sensor:
+        report += "- Indoor: Min %.1f°F, Max %.1f°F, Median %.1f°F\n" % \
+            (min(sensor['Home']), max(sensor['Home']), median(sensor['Home']))
+    if 'Pool thermometer' in sensor:
+        pool = [ x for x in sensor['Pool thermometer'] if type(x) == float ]
+        report += "- Pool: Min %.1f°F, Max %.1f°F, Median %.1f°F\n" % \
+            (min(pool), max(pool), median(pool))
+
+    if 'EV SoC' in sensor:
+        sensor['EV SoC'] = [ x for x in sensor['EV SoC'] if x != -1 ]
+        if len(sensor['EV SoC']) > 0:
+            report += "\n"
+            report += 'Car:\n'
+            report += '- State of Charge: Min %.1f%%, Max %.1f%%, Latest %.1f%%\n' % \
+                (min(sensor['EV SoC']), max(sensor['EV SoC']), sensor['EV SoC'][-1])
+    if 'EV mileage' in sensor and sensor['EV mileage']:
+        report += '- Mileage: %.1f miles, +%.1f miles\n' % \
+            (sensor['EV mileage'][-1],
+             sensor['EV mileage'][-1] - sensor['EV mileage'][0])
     report += "\n"
     report += "Summary:\n"
-    report += "- Total consumption: %.2f KWh - %.2f KWh (%d%%) from local production\n" % \
-        (total, total - sums['imported'],
-         (total - sums['imported']) / total * 100)
-    report +="- Imported: %.2f KWh (%d%%), Exported: %.2f KWh\n" % \
+    from_producers = total - sums['imported']
+    report += "- Total consumption: %.2f KWh - %.2f KWh (%.1f%%) from local production\n" % \
+        (total, from_producers, from_producers / total * 100)
+    report +="- Imported: %.2f KWh (%.1f%%) - Exported: %.2f KWh\n" % \
         (sums['imported'], sums['imported']/total*100, sums['exported'])
-    if sums['onpeak'] != 0:
-        report += "- On Peak: %.2f KWh (%d%%), Off Peak: %.02f KWh\n" % \
+    if sums['onpeak'] > 0.01:
+        report += "- On Peak: %.2f KWh (%.1f%%), Off Peak: %.02f KWh\n" % \
             (sums['onpeak'], (sums['onpeak'] / sums['imported']) * 100, \
              sums['offpeak'])
     cost = ((sums['offpeak'] * utility.rate["offpeak"]) +
             (sums['onpeak'] * utility.rate["onpeak"]) -
             (sums['exported'] * utility.rate["export"]))
-    report += "- Cost: %.2f USD (%.2f USD saved compared to EZ-3)\n" % \
-        (cost, ((total - sums['onpeak']) * .0829 + \
-                (sums['onpeak'] * .2895)) - cost)
+    report += "- Cost: %.2f USD\n" % cost
     report += "\n"
 
-    report += "Producer(s):\n"
+    report += "Producer(s): %.1f%% used\n" % \
+        (from_producers / sum([ res[p]['sum'] for p in producers]) * 100)
     for p in producers:
         report += "- %s: %.2f KWh (%d%%) - Max %.2f KW - %s\n" % \
             (p.description, res[p]['sum'], \
@@ -222,7 +223,7 @@ def build_report(sums, res, temps, utility, producers, consumers):
     for c in list(sorted(consumers, key=lambda item: res[item]['sum'], reverse=True)):
         if res[c]['sum'] < 0.01:
             continue
-        report += "- %s: %.2f KWh (%d%%) - Max %.2f KW - %s\n" % \
+        report += "- %s: %.2f KWh (%.1f%%) - Max %.2f KW - %s\n" % \
             (c.description, res[c]['sum'], \
              (res[c]['sum'] / total) * 100, res[c]['max'],
              duration_string(res[c]['time']))
@@ -236,16 +237,17 @@ def main(argv):
     utility = get_utility()
     producers=[ Producer(config[x]) for x in config['general']['producers'].split(',') ]
     consumers=[ Consumer(config[x]) for x in config['general']['consumers'].split(',') ]
+    consumers.append(Other(consumers))
 
     sums = res = temps = first = last = date = None
     if args.prefix:
         pattern = re.compile("^%s.*$" % args.prefix)
-        for filename in os.listdir("."):
+        for filename in sorted(os.listdir(".")):
             if not pattern.search(filename):
                 continue
             s, r, t, d = compute_for(filename, utility, producers, consumers)
             if not sums:
-                sums, res, temps, date = s, r, t, d
+                sums, res, sensor, date = s, r, t, d
                 first = last = d
             else:
                 sums = { k:v + sums[k] for k, v in s.items() }
@@ -253,16 +255,17 @@ def main(argv):
                             'sum':v['sum'] + res[k]['sum'],
                             'max':max(v['max'], res[k]['max']) }
                         for k, v in r.items() }
-                temps += t
+                for k, v in sensor.items():
+                    sensor[k] += t[k]
                 first = min(d, first)
                 last = max(d, last)
         title = "Report for %s - %s" % (first.strftime("%A %B %d %Y"),
                                                 last.strftime("%A %B %d %Y"))
     else:
-        sums, res, temps, date = compute_for(args.file, utility, producers, consumers)
+        sums, res, sensor, date = compute_for(args.file, utility, producers, consumers)
         title = "Daily report for " + date.strftime("%A %B %d %Y")
 
-    report = build_report(sums, res, temps, utility, producers, consumers)
+    report = build_report(sums, res, sensor, utility, producers, consumers)
     title = title.lstrip("0").replace(" 0", " ")
     if args.plot:
         plot(SensorLogReader(filename=args.file), title, consumers, producers)
