@@ -26,6 +26,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 # OF THE POSSIBILITY OF SUCH DAMAGE.
 
+import csv
 import logging
 import os
 import smtplib
@@ -39,6 +40,7 @@ from logging.handlers import TimedRotatingFileHandler
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from enum import IntEnum
+from os.path import basename, splitext, isfile
 
 _mailer  = None
 _logger  = None
@@ -68,8 +70,41 @@ class _MyEmail:
         alternative.attach(MIMEText(body.encode('utf-8'), 'plain', _charset='utf-8'))
         self.send(msg, level = level)
 
+class SensorLogReader(csv.DictReader):
+    DEFAULT_FILENAME="sensor.csv"
+    date = None
+
+    def __init__(self, date=None, filename=None):
+        if not filename:
+            if date:
+                filename = self.DEFAULT_FILENAME + "." + date.strftime("%Y%m%d")
+            else:
+                filename = self.DEFAULT_FILENAME
+        self.filename = filename
+        if not isfile(filename):
+            raise FileNotFoundError()
+
+    def __iter__(self):
+        f = open(self.filename, 'r')
+        csv.DictReader.__init__(self, f)
+        return self
+
+    def __next__(self):
+        d = csv.DictReader.__next__(self)
+        for key, value in d.items():
+            if key == 'time':
+                d[key] = datetime.strptime(value, "%m/%d/%Y %H:%M:%S")
+                if not self.date:
+                    self.date= d[key]
+            else:
+                try:
+                    d[key] = float(value)
+                except ValueError:
+                    d[key] = value
+        return d
+
 def _create_logger(filename):
-    name = os.path.splitext(os.path.basename(filename))[0].replace("_", " ")
+    name = splitext(basename(filename))[0].replace("_", " ")
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)
     handler = TimedRotatingFileHandler(filename=filename, when="midnight",
@@ -93,7 +128,9 @@ class Utility:
         self.rate['offpeak'] = eval(self.config['offpeak'])[date.month - 1]
         self.rate['export'] = eval(self.config['export'])
 
-    def isOnPeak(self, date=datetime.now()):
+    def isOnPeak(self, date=None):
+        if not date:
+            date = datetime.now()
         if date.weekday() in [ self.WEEKDAYS.sat, self.WEEKDAYS.sun ]:
             return False
         sched_name=self.schedules[date.month - 1]
