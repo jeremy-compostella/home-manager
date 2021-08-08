@@ -93,7 +93,7 @@ def main():
 
         settings = read_settings(prefix + '.ini', DEFAULT_SETTINGS)
         maximize = False
-        if not utility.isOnPeak():
+        if not utility or not utility.isOnPeak():
             if ev.power[0] * settings.coefficient < available < ev.power[0]:
                 debug("Enforcing charge rate of %.02f KW" % ev.power[0])
                 available = ev.power[0]
