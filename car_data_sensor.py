@@ -49,8 +49,8 @@ class Watchdog(threading.Thread):
     def run(self):
         while True:
             with self.lock:
-                if datetime.now() > self.last + timedelta(minutes=5):
-                    alert('%s is stuck - exiting ...',
+                if datetime.now() > self.last + timedelta(minutes=2):
+                    alert('%s is stuck - exiting ...' %
                           os.path.splitext(__file__)[0])
                     os._exit(1)
 
@@ -150,6 +150,7 @@ def main():
     wdt = Watchdog()
     wdt.start()
 
+    obd.logger.setLevel(obd.logging.DEBUG)
     debug("... is now ready to run")
     while True:
         wdt.kick()
