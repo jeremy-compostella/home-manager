@@ -30,13 +30,12 @@ import sensor
 import math
 import requests
 
-from math import floor
 from datetime import datetime, timedelta
+from math import floor
 from pyecobee import *
-from statistics import mean
-from wallbox import Wallbox
-from stat_sensor import SensorLogReader
+from statistics import mean, median
 from tools import *
+from wallbox import Wallbox
 
 class Consumer:
     __validUpTo = None
@@ -68,10 +67,11 @@ class Consumer:
             reader = SensorLogReader(datetime.now() - timedelta(days=1))
         except FileNotFoundError:
             return [ 1 ]
-        power = 0
+        power = []
         for usage in iter(reader):
-            power = max(power, self.totalPower(usage))
-        self._power = [ power ]
+            if self.totalPower(usage) > .8:
+                power.append(self.totalPower(usage))
+        self._power = [ median(power) ]
 
     def __init__(self, config):
         self._name = config.name
@@ -122,6 +122,28 @@ class Consumer:
             if t - timedelta(0, 90) <= now <= t + timedelta(0, 30):
                 return True
         return False
+
+
+class OtherSection:
+    name = 'Other'
+    dictionary = { 'description':'Other',
+                   'sensors':'' }
+    def __init__(self):
+        pass
+    def __contains__(self, key):
+        key in self.dictionary
+    def __getitem__(self, key):
+        return self.dictionary[key]
+
+class Other(Consumer):
+    def __init__(self, consumers):
+        Consumer.__init__(self, OtherSection())
+        self._sensors = [ ]
+        for c in consumers:
+            self._sensors += c.sensors
+
+    def totalPower(self, usage):
+        return -1 * (sum([ usage[s] for s in self.sensors ]) + usage['solar'] - usage['net'])
 
 def minutes_to_datetime(minutes):
     return datetime.now().replace(hour=floor(minutes/60),
@@ -175,7 +197,7 @@ class MyEcobee(Sensor, Consumer):
         return None
 
     temperature_cache = {}
-    def temperatures(self):
+    def temperatures(self, cache = True):
         if not self.ecobee:
             return {}
         sel = Selection(selection_type=SelectionType.REGISTERED.value,
@@ -183,15 +205,18 @@ class MyEcobee(Sensor, Consumer):
                         include_sensors=True)
         thermostats = self.__try(lambda: self.ecobee.request_thermostats(sel))
         if thermostats == 'unknown' or thermostats == None:
-            return self.temperature_cache
+            if cache:
+                return self.temperature_cache
+            else:
+                return None
         temps = {}
         for s in thermostats.thermostat_list[0].remote_sensors:
             temps[s.name] = int(s.capability[0].value) / 10
         self.temperature_cache = temps
         return temps
 
-    def read(self):
-        return self.temperatures()
+    def read(self, cache = True):
+        return self.temperatures(cache)
 
     def __program(self):
         if not self.ecobee:
