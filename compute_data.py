@@ -31,11 +31,11 @@ import os
 import sys
 import re
 
-from statistics import median
-from math import floor
 from datetime import datetime
+from math import floor
 from sensor_logger import SensorLogWriter
-from stat_sensor import SensorLogReader
+from statistics import median
+from tools import SensorLogReader
 
 def temp2str(temp):
     return "%.1f" % temp
@@ -63,7 +63,7 @@ def main(argv):
                 if start:
                     if current['A/C'] < .5:
                         row['Minutes'] = (current['time'] - start).seconds / 60
-                        if row['Minutes'] <= 5:
+                        if row['Minutes'] <= 90:
                             start = None
                             continue
                         row['Outdoor Stop'] = current['outdoor temp']
@@ -73,7 +73,7 @@ def main(argv):
                     start = current['time']
                     row['Outdoor Start'] = current['outdoor temp']
                     row['Indoor Start'] = (current['Living Room'] + current['Home']) / 2
-            if start:
+            if start and 'Minutes' in row:
                 database.append(row)
 
     f = open('hvac_database.csv', 'w', newline='')
