@@ -287,7 +287,8 @@ class MyEcobee(Sensor, Consumer):
         temps = { k:v for (k, v) in self.temperatures().items()
                   if k in climateSensors }
         current = mean(temps.values())
-        if current > climate.cool_temp / 10 or current < climate.heat_temp / 10:
+        if current >= climate.cool_temp / 10 + .5 or \
+           current <= climate.heat_temp / 10 - .5:
             return True
         return False
 
