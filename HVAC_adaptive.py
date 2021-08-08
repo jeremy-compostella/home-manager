@@ -91,42 +91,81 @@ def main():
 
     program = config['Ecobee']['adjustable_program']
 
-    ecobee = MyEcobee(config['Ecobee'])
+    hvac = MyEcobee(config['Ecobee'])
     weather = MyOpenWeather(config['OpenWeather'])
+    ev = MyWallBox(config['Wallbox'])
+    vue = MyVue2(config['Emporia'])
 
     database = load_database("hvac_database.csv")
     saved = None
 
     debug("... is now ready to run")
+    early_schedule = False
     while True:
-        info = ecobee.programInfo(program)
+        info = hvac.programInfo(program)
+        if not info:
+            wait_for_next_minute()
+            continue
 
-        if saved and datetime.now() > saved['stop']:
-            ecobee.setProgramSchedule(program, saved['start'], saved['stop'])
-            notify("'%s' Program schedule restored" % program)
+        if saved and datetime.now() >= saved['stop']:
+            hvac.setProgramSchedule(program, saved['start'], saved['stop'])
+            notify("HVAC: '%s' Program schedule restored" % program)
             saved = None
+            early_schedule = False
 
         if datetime.now() >= info['stop']:
             wait_for_next_minute()
             continue
 
+        # Early schedule: if the car is not plugged-in and the right
+        # conditions are met, start PROGRAM earlier to get the house
+        # to the right temperature before the car is back and ready to
+        # be charged.
+        if early_schedule:
+            if ev.isConnected() or \
+               datetime.now() >= saved['start'] - timedelta(minutes=5):
+                hvac.setProgramSchedule(program, saved['start'], saved['stop'])
+                notify('HVAC: Stopping early schedule')
+                early_schedule = False
+                continue
+            wait_for_next_minute()
+            continue
+        elif datetime.now() < info['start'] and \
+             not ev.isConnected() and \
+             hvac.power[-1] + vue.read()['net'] < 1:
+            if not saved:
+                saved = info
+            hvac.setProgramSchedule(program, datetime.now(), saved['stop'])
+            early_schedule = True
+            notify('HVAC: Starting early schedule')
+            wait_for_next_minute()
+            continue
+
+        # If the car is not connected or is fully charged, prioritize
+        # comfort over consumption by not postponing PROGRAM.
+        if not ev.isConnected() or ev.isFullyCharged():
+            debug("HVAC: use power while available")
+            wait_for_next_minute()
+            continue
+
+        # Late schedule: based on the home thermal property and
+        # current outdoor and indoor temperatures, predict the
+        # required time to get the house to the right temperature and
+        # delay the starting time of PROGRAM accordingly.
         if datetime.now() < info['start'] - timedelta(minutes=5) or \
            datetime.now() > info['start']:
             wait_for_next_minute()
             continue
 
         allocated = (info['stop'] - info['start']).seconds / 60
-
-        settings = read_settings(prefix + '.ini', { 'coefficient':1 })
         required = estimate(database, weather.read(),
-                            info['current'], info['target']) * settings.coefficient
-        required = round(required / 30) * 30
-        if allocated > required:
-            ecobee.setProgramSchedule(program, info['start'] + timedelta(minutes=30),
-                                      info['stop'])
-            notify("'%s' program schedule postponed by 30 minutes" % program)
-            debug("It should take %d minutes to go from %.01fF to %.01fF" %
-                  (required, info['current'], info['target']))
+                            info['current'], info['target'] + .7)
+        debug("It should take %d minutes to go from %.01fF to %.01fF" %
+              (required, info['current'], info['target'] + .7))
+        if allocated > round(required / 30) * 30:
+            hvac.setProgramSchedule(program, info['start'] + timedelta(minutes=30),
+                                    info['stop'])
+            notify("HVAC: '%s' program schedule postponed by 30 minutes" % program)
             if not saved:
                 saved = info
 
