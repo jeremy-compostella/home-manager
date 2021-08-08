@@ -78,7 +78,6 @@ def main():
                 usage=vue.read(scale=Scale.SECOND.value)
                 break
             except:
-                notify("%s sensor read failed" % type(vue).__name__)
                 if entered_at + timedelta(seconds=90) < datetime.now():
                     ev.stop()
                 time.sleep(15)
