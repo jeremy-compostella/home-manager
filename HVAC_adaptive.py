@@ -169,7 +169,7 @@ def main():
             if not saved:
                 saved = info
 
-        time.sleep(60 * 29)
+        wait_for_next_minute()
 
 if __name__ == "__main__":
     main()
