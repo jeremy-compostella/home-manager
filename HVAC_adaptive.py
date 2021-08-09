@@ -122,12 +122,13 @@ def main():
         # to the right temperature before the car is back and ready to
         # be charged.
         if early_schedule:
-            if ev.isConnected() or \
-               datetime.now() >= saved['start'] - timedelta(minutes=5):
+            if ev.isConnected():
                 hvac.setProgramSchedule(program, saved['start'], saved['stop'])
                 notify('HVAC: Stopping early schedule')
                 early_schedule = False
                 continue
+            if datetime.now() >= saved['start']:
+                early_schedule = False
             wait_for_next_minute()
             continue
         elif datetime.now() < info['start'] and \
