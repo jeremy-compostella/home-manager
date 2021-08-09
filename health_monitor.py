@@ -34,15 +34,24 @@ from consumer import *
 from datetime import datetime, timedelta
 from sensor import *
 from statistics import median
+from subprocess import Popen
 from tools import *
 
-def test_loop(name, msg, end_msg = None, sleep = 15, end = False, min_failure = 1):
+status = {}
+status_lock = threading.Lock()
+def update_status(name, value):
+    with status_lock:
+        status[name] = value
+    debug('%s:%s' % (name, value))
+
+def test_loop(name, msg, end_msg = None, sleep = 15, end = False, min_failure = 1,
+              on_fail=lambda *args: None):
     def inner(fun):
         def run_until_success(*args, **kwargs):
             failed = 0
             while True:
                 ret = fun(*args, **kwargs)
-                debug('%s:%s' % (name, ret))
+                update_status(name, ret)
                 if ret:
                     if failed >= min_failure and end_msg:
                         alert(end_msg)
@@ -53,6 +62,7 @@ def test_loop(name, msg, end_msg = None, sleep = 15, end = False, min_failure = 
                     continue
                 failed += 1
                 if failed == min_failure:
+                    on_fail()
                     alert(msg)
                 time.sleep(sleep)
         return run_until_success
@@ -224,6 +234,24 @@ class CarStateOfCharge(threading.Thread):
         return self.sensor.read() and \
             self.sensor.datetime >= self.pluggedIn - timedelta(seconds=10 * 60)
 
+# Wifi
+# ----
+# Sometimes the wifi router misbehaves and the communications start
+# failing. Device disconnection and re-connection usually fixes it.
+def restart_wifi():
+    debug('Restarting wifi...')
+    Popen(['rfkill', 'block', 'wifi']).terminate()
+    time.sleep(10)
+    Popen(['rfkill', 'unblock', 'wifi']).terminate()
+@test_loop('Internet access',
+           'Lost Internet Access', 'Internet access restored',
+           on_fail=restart_wifi, min_failure=12)
+def internet_access():
+    with status_lock:
+        if 'Emporia read' in status and 'ecobee alive' in status:
+            return bool(status['Emporia read'] or status['ecobee alive'])
+    return True
+
 def main():
     config = init(os.path.splitext(__file__)[0] + ".log")
 
@@ -240,6 +268,7 @@ def main():
     CarStateOfCharge(config['CarData']).start()
     ecobee = MyEcobee(config['Ecobee'])
     threading.Thread(target=lambda: sensor_is_running(ecobee)).start()
+    threading.Thread(target=internet_access).start()
 
     debug("... is now ready to run")
     while True:
