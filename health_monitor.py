@@ -108,12 +108,12 @@ def hvac_yellow():
 # 2. When the Red wire is shunt by float T-switch, the air handler
 #    keeps running but the condensation and the heat pump do not. To
 #    avoid false positive, we use a large min_failure parameter as my
-#    HVAC is configured to run the air-handler for a few minutes after
-#    stopping the A/C.
+#    HVAC is configured to run the air-handler for a little while
+#    after stopping the A/C.
 @test_loop('heat pump red',
            "Air handler is running while Heat Pump is stopped",
            "Heat pump/air handler is back to normal",
-           min_failure = 32)
+           min_failure = 48)
 def hvac_red():
     usage = reader.read();
     return not (usage['A/C'] < .1 and usage['air handler'] > .1)
