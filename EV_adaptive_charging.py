@@ -29,21 +29,23 @@
 import os
 import time
 
-from consumer import *
 from datetime import datetime, timedelta
-from sensor import *
-from tools import *
+from pyemvue.enums import Scale
 
-def log_state(usage, ev):
-    s = ', '.join([ f'{k}: {v:.2f}' for k, v in usage.items() \
-                    if k == 'net' or abs(v) > 0.1 ])
-    if ev.isCharging():
-        s += ", added: %.2f KWh" % ev.getAddedEnergy()
-    debug(s)
+from consumer import Consumer, MyWallBox
+from sensor import MyVue2
+from tools import init, debug, get_utility, read_settings
 
-def stop_charge_and_sleep(msg, ev, seconds):
+def log_state(usage, charger):
+    log = ', '.join([ f'{k}: {v:.2f}' for k, v in usage.items() \
+                      if k == 'net' or abs(v) > 0.1 ])
+    if charger.isCharging():
+        log += ", added: %.2f KWh" % charger.getAddedEnergy()
+    debug(log)
+
+def stop_charge_and_sleep(msg, charger, seconds):
     debug(msg)
-    ev.stop()
+    charger.stop()
     time.sleep(seconds)
 
 DEFAULT_SETTINGS = { 'coefficient':1,
@@ -53,23 +55,24 @@ DEFAULT_SETTINGS = { 'coefficient':1,
 def main():
     prefix = os.path.splitext(__file__)[0]
     config = init(prefix + '.log')
-    ev = MyWallBox(config['Wallbox'])
+    charger = MyWallBox(config['Wallbox'])
     consumers = []
-    for c in config['general']['consumers'].split(','):
-        if 'class' in config[c]:
-            consumers.append(globals()[config[c]['class']](config[c]))
+    for current in config['general']['consumers'].split(','):
+        if 'class' in config[current]:
+            klass = getattr(__import__('consumer'), config[current]['class'])
+            consumers.append(klass(config[current]))
         else:
-            consumers.append(Consumer(config[c]))
+            consumers.append(Consumer(config[current]))
     vue = MyVue2(config['Emporia'])
     utility = get_utility()
     debug("... is now ready to run")
     while True:
-        if not ev.isConnected():
-            stop_charge_and_sleep("Waiting for car connection", ev, 10)
+        if not charger.isConnected():
+            stop_charge_and_sleep("Waiting for car connection", charger, 10)
             continue
 
-        if ev.isFullyCharged():
-            stop_charge_and_sleep("Fully charged, nothing to do", ev, 60)
+        if charger.isFullyCharged():
+            stop_charge_and_sleep("Fully charged, nothing to do", charger, 60)
             continue
 
         entered_at = datetime.now()
@@ -79,24 +82,25 @@ def main():
                 break
             except:
                 if entered_at + timedelta(seconds=90) < datetime.now():
-                    ev.stop()
+                    charger.stop()
                 time.sleep(15)
                 continue
 
-        log_state(usage, ev)
-        available = (usage["net"] - ev.totalPower(usage)) * -1
+        log_state(usage, charger)
+        available = (usage["net"] - charger.totalPower(usage)) * -1
 
-        for c in consumers:
-            if not c.isRunning(usage) and c.isAboutToStart():
-                available -= c.power[-1]
-                debug("Anticipating need for %s" % c.name)
+        for consumer in consumers:
+            if not consumer.isRunning(usage) and consumer.isAboutToStart():
+                available -= consumer.power[-1]
+                debug("Anticipating need for %s" % consumer.name)
 
         settings = read_settings(prefix + '.ini', DEFAULT_SETTINGS)
         maximize = False
         if not utility or not utility.isOnPeak():
-            if ev.power[0] * settings.coefficient < available < ev.power[0]:
-                debug("Enforcing charge rate of %.02f KW" % ev.power[0])
-                available = ev.power[0]
+            min_power = charger.power[0]
+            if min_power * settings.coefficient < available < min_power:
+                debug("Enforcing charge rate of %.02f KW" % charger.power[0])
+                available = charger.power[0]
             if settings.minimal_charge > 0 and available < settings.minimal_charge:
                 debug("Enforcing minimal charge rate of %.02f KW" %
                       settings.minimal_charge)
@@ -104,9 +108,9 @@ def main():
             maximize = settings.maximize
 
         entered_at = datetime.now()
-        ev.runWith(available, maximize=maximize)
+        charger.runWith(available, maximize=maximize)
         remaining = 15 - (datetime.now() - entered_at).seconds
-        if (remaining > 0):
+        if remaining > 0:
             time.sleep(remaining)
 
 if __name__ == "__main__":

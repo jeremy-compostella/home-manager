@@ -28,7 +28,6 @@
 
 import csv
 import logging
-import os
 import smtplib
 import shelve
 import time
@@ -112,7 +111,7 @@ def _create_logger(filename):
     handler.suffix = "%Y%m%d"
     handler.setFormatter(logging.Formatter('%(asctime)s %(message)s'))
     logger.addHandler(handler)
-    logger.debug("%s is initializing..." % name)
+    logger.debug("%s is initializing...", name)
     return logger
 
 class Utility:
@@ -163,7 +162,6 @@ def __warn(text, level = 'notify'):
         _mailer.sendMIMEText(text, level = level)
     except:
         debug("Failed to send an email with '%s'" % text)
-        pass
 
 def notify(text):
     __warn(text)
@@ -171,12 +169,12 @@ def notify(text):
 def alert(text):
     __warn(text, level = 'alert')
 
-def sendEmail(msg):
+def send_email(msg):
     _mailer.send(msg)
 
 def wait_for_next_minute():
-    t = datetime.now()
-    sleeptime = 60 - (t.second + t.microsecond/1000000.0)
+    now = datetime.now()
+    sleeptime = 60 - (now.second + now.microsecond/1000000.0)
     if sleeptime > 0:
         time.sleep(sleeptime)
 
@@ -186,7 +184,7 @@ def read_settings(filename, defaults):
     try:
         config = ConfigParser()
         config.read(filename)
-        if not 'settings' in config:
+        if 'settings' not in config:
             return Settings(**ret)
         for key in list(ret.keys()):
             if key in config['settings']:

@@ -26,21 +26,29 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 # OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import argparse
-import matplotlib.dates as mdates
-import matplotlib.pyplot as plt
-import re
-import sys
+'''This module processes data collected from various sensors.
 
-from consumer import *
-from datetime import datetime
+It can generates text reports, graphic reports and send them by email.
+
+'''
+
+import argparse
+import os
+import re
+
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from math import floor
 from os.path import basename
-from producer import *
 from statistics import median
-from tools import *
+
+import matplotlib.dates as mdates
+import matplotlib.pyplot as plt
+
+from consumer import Consumer, Other
+from producer import Producer
+from tools import init, get_utility, SensorLogReader, send_email
 
 def get_sensors_and_label(val, items):
     sensors=[]
@@ -74,8 +82,8 @@ def plot(reader, title, consumers, producers, filename=None):
     (sensors, labels) = get_sensors_and_label(val, consumers)
     ax.stackplot(val['time'], sensors, labels=labels)
     (sensors, labels) = get_sensors_and_label(val, producers)
-    for (s, l) in zip(sensors, labels):
-        ax.plot(val['time'], s, color='black', label=l, lw=.8)
+    for (sensor, label) in zip(sensors, labels):
+        ax.plot(val['time'], sensor, color='black', label=label, lw=.8)
 
     ax.legend(loc='upper left', title=r"$\bf{Producers}$ and $\bf{Consumers}$")
     plt.grid(which='major', linestyle='dotted')
@@ -106,7 +114,7 @@ def plot(reader, title, consumers, producers, filename=None):
         plt.show()
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='Process FILE and compute a report.')
+    parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--file', dest='file', help='Data file')
     parser.add_argument('--files', dest='prefix',
                         help='Build report for files prefixed by PREFIX')
@@ -119,9 +127,9 @@ def parse_args():
     return parser.parse_args()
 
 def duration_string(duration):
-    if math.floor(duration / 60) == 0:
+    if floor(duration / 60) == 0:
         return "%dmin" % duration
-    if math.floor(duration / (24 * 60)) == 0:
+    if floor(duration / (24 * 60)) == 0:
         return "%dh%02dmin" % (duration / 60, duration % 60)
     days = duration / (24 * 60)
     duration -= floor(days) * 24 * 60
@@ -137,9 +145,9 @@ def compute_for(filename, utility, producers, consumers):
     reader = SensorLogReader(filename=filename)
     utility.loadRate(next(iter(reader))['time'])
     for current in iter(reader):
-        for key in sensor.keys():
+        for key, value in sensor.items():
             if key in current:
-                sensor[key].append(current[key])
+                value.append(current[key])
 
         date = current["time"]
 
@@ -178,7 +186,7 @@ def build_report(sums, res, sensor, utility, producers, consumers):
         report += "- Indoor: Min %.1f°F, Max %.1f°F, Median %.1f°F\n" % \
             (min(sensor['Home']), max(sensor['Home']), median(sensor['Home']))
     if 'Pool thermometer' in sensor:
-        pool = [ x for x in sensor['Pool thermometer'] if type(x) == float ]
+        pool = [ x for x in sensor['Pool thermometer'] if isinstance(x, float) ]
         report += "- Pool: Min %.1f°F, Max %.1f°F, Median %.1f°F\n" % \
             (min(pool), max(pool), median(pool))
 
@@ -212,24 +220,25 @@ def build_report(sums, res, sensor, utility, producers, consumers):
 
     report += "Producer(s): %.1f%% used\n" % \
         (from_producers / sum([ res[p]['sum'] for p in producers]) * 100)
-    for p in producers:
+    for producer in producers:
         report += "- %s: %.2f KWh (%d%%) - Max %.2f KW - %s\n" % \
-            (p.description, res[p]['sum'], \
-             (res[p]['sum'] / total) * 100, res[p]['max'],
-             duration_string(res[p]['time']))
+            (producer.description, res[producer]['sum'], \
+             (res[producer]['sum'] / total) * 100, res[producer]['max'],
+             duration_string(res[producer]['time']))
     report += '\n'
 
     report += "Consumer(s):\n"
-    for c in list(sorted(consumers, key=lambda item: res[item]['sum'], reverse=True)):
-        if res[c]['sum'] < 0.01:
+    for consumer in list(sorted(consumers, key=lambda item: res[item]['sum'],
+                                reverse=True)):
+        if res[consumer]['sum'] < 0.01:
             continue
         report += "- %s: %.2f KWh (%.1f%%) - Max %.2f KW - %s\n" % \
-            (c.description, res[c]['sum'], \
-             (res[c]['sum'] / total) * 100, res[c]['max'],
-             duration_string(res[c]['time']))
+            (consumer.description, res[consumer]['sum'], \
+             (res[consumer]['sum'] / total) * 100, res[consumer]['max'],
+             duration_string(res[consumer]['time']))
     return report
 
-def main(argv):
+def main():
     args = parse_args()
 
     config = init()
@@ -239,26 +248,27 @@ def main(argv):
     consumers=[ Consumer(config[x]) for x in config['general']['consumers'].split(',') ]
     consumers.append(Other(consumers))
 
-    sums = res = temps = first = last = date = None
+    sums = { }
     if args.prefix:
         pattern = re.compile("^%s.*$" % args.prefix)
         for filename in sorted(os.listdir(".")):
             if not pattern.search(filename):
                 continue
-            s, r, t, d = compute_for(filename, utility, producers, consumers)
+            tmp = compute_for(filename, utility, producers, consumers)
+            # s, r, t, d = compute_for(filename, utility, producers, consumers)
             if not sums:
-                sums, res, sensor, date = s, r, t, d
-                first = last = d
+                sums, res, sensor, date = tmp
+                first = last = tmp[3]
             else:
-                sums = { k:v + sums[k] for k, v in s.items() }
+                sums = { k:v + sums[k] for k, v in tmp[0].items() }
                 res = { k:{ 'time':v['time'] + res[k]['time'],
                             'sum':v['sum'] + res[k]['sum'],
                             'max':max(v['max'], res[k]['max']) }
-                        for k, v in r.items() }
-                for k, v in sensor.items():
-                    sensor[k] += t[k]
-                first = min(d, first)
-                last = max(d, last)
+                        for k, v in tmp[1].items() }
+                for key, value in sensor.items():
+                    value += tmp[2][key]
+                first = min(tmp[3], first)
+                last = max(tmp[3], last)
         title = "Report for %s - %s" % (first.strftime("%A %B %d %Y"),
                                                 last.strftime("%A %B %d %Y"))
     else:
@@ -294,11 +304,11 @@ def main(argv):
                 basename(plot_file)
             msg.attach(part)
 
-        sendEmail(msg)
+        send_email(msg)
     else:
         print(title)
         print("")
         print(report)
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    main()

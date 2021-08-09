@@ -30,9 +30,11 @@ import csv
 import os
 import sys
 
-from consumer import *
-from sensor import *
-from tools import *
+from datetime import datetime, timedelta
+
+from consumer import MyEcobee, MyWallBox
+from sensor import MyOpenWeather, MyVue2
+from tools import init, debug, notify, wait_for_next_minute
 
 def load_database(filename):
     return list(csv.DictReader(open(filename, 'r'),
@@ -45,10 +47,10 @@ def cannot_warm_up(weather):
             {'status':'Thunderstorm' },
             {'status':'Rain' },
             {'status':'Mist' } ]
-    for d in bad:
-        if weather['status'] == d['status']:
-            if 'detailed status' in d:
-                if weather['detailed status'] == d['detailed status']:
+    for desc in bad:
+        if weather['status'] == desc['status']:
+            if 'detailed status' in desc:
+                if weather['detailed status'] == desc['detailed status']:
                     return True
             else:
                 return True
@@ -93,11 +95,11 @@ def main():
 
     hvac = MyEcobee(config['Ecobee'])
     weather = MyOpenWeather(config['OpenWeather'])
-    ev = MyWallBox(config['Wallbox'])
+    charger = MyWallBox(config['Wallbox'])
     vue = MyVue2(config['Emporia'])
 
     database = load_database("hvac_database.csv")
-    saved = None
+    saved = {}
 
     debug("... is now ready to run")
     early_schedule = False
@@ -122,7 +124,7 @@ def main():
         # to the right temperature before the car is back and ready to
         # be charged.
         if early_schedule:
-            if ev.isConnected():
+            if charger.isConnected():
                 hvac.setProgramSchedule(program, saved['start'], saved['stop'])
                 notify('HVAC: Stopping early schedule')
                 early_schedule = False
@@ -131,9 +133,9 @@ def main():
                 early_schedule = False
             wait_for_next_minute()
             continue
-        elif datetime.now() < info['start'] and \
-             not ev.isConnected() and \
-             hvac.power[-1] + vue.read()['net'] < 1:
+        if datetime.now() < info['start'] and \
+           not charger.isConnected() and \
+           hvac.power[-1] + vue.read()['net'] < 1:
             if not saved:
                 saved = info
             hvac.setProgramSchedule(program, datetime.now(), saved['stop'])
@@ -144,7 +146,7 @@ def main():
 
         # If the car is not connected or is fully charged, prioritize
         # comfort over consumption by not postponing PROGRAM.
-        if not ev.isConnected() or ev.isFullyCharged():
+        if not charger.isConnected() or charger.isFullyCharged():
             debug("HVAC: use power while available")
             wait_for_next_minute()
             continue

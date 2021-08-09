@@ -28,14 +28,18 @@
 
 import os
 import threading
+import time
 
-from bluetooth import *
-from consumer import *
 from datetime import datetime, timedelta
-from sensor import *
 from statistics import median
 from subprocess import Popen
-from tools import *
+
+from bluetooth import discover_devices
+from pyemvue.enums import Scale
+
+from consumer import MyEcobee, MyWallBox
+from sensor import Sensor, MyVue2, CarData
+from tools import init, alert, debug, SensorLogReader
 
 status = {}
 status_lock = threading.Lock()
@@ -69,7 +73,8 @@ def test_loop(name, msg, end_msg = None, sleep = 15, end = False, min_failure = 
     return inner
 
 reader = None
-class SensorReader:
+class UsageReader(Sensor):
+    """Encapsulation of the MyView2 reader as test_loop."""
     expiration = None
     usage = None
 
@@ -93,49 +98,52 @@ class SensorReader:
             self.expiration = datetime.now() + timedelta(seconds=15)
         return self.usage
 
-# HVAC
-# ----
-# 1. When the Yellow wire is shunt by float T-switch the air handler
-#    stops running but the Heat Pump is still running
+# Heating, Ventilation, and Air Conditioning (HVAC)
+# -------------------------------------------------
 @test_loop('Heat pump yellow',
            "Heat pump running while air handler is stopped",
            "Heat pump/air handler is back to normal",
            min_failure = 3)
 def hvac_yellow():
+    """When the Yellow wire is shunt by float T-switch the air handler
+stops running but the Heat Pump is still running.
+    """
     usage = reader.read()
     return not (usage['A/C'] > .1 and usage['air handler'] < .1)
 
-# 2. When the Red wire is shunt by float T-switch, the air handler
-#    keeps running but the condensation and the heat pump do not. To
-#    avoid false positive, we use a large min_failure parameter as my
-#    HVAC is configured to run the air-handler for a little while
-#    after stopping the A/C.
 @test_loop('heat pump red',
            "Air handler is running while Heat Pump is stopped",
            "Heat pump/air handler is back to normal",
            min_failure = 48)
 def hvac_red():
-    usage = reader.read();
+    """When the Red wire is shunt by float T-switch, the air handler keeps
+running but the condensation and the heat pump do not. To avoid false
+positive, we use a large min_failure parameter as my HVAC is
+configured to run the air-handler for a little while after stopping
+the A/C.
+    """
+    usage = reader.read()
     return not (usage['A/C'] < .1 and usage['air handler'] > .1)
 
-# 3. Test Ecobee access, in certain conditions, the entire HVAC system
-#    is shut down and the ecobee is not powered anymore
 @test_loop('ecobee alive',
            "Ecobee has become inaccessible", "Ecobee is back",
            sleep = 60, min_failure = 5)
 def sensor_is_running(device):
+    """Under certain conditions (no internet, HVAC issues), the entire
+HVAC system is shut down and the ecobee is not powered anymore"""
     return device.read(cache=False)
 
-# 4. TODO: Install temperature sensors and monitor the delta T
+# TODO: Install temperature sensors and monitor the delta T
 
-# Pool filtering system
+# Pool Filtering System
 # ---------------------
-# 1. When the Pool Pump malfunction, it stops itself in less than 2
-#    minutes (see July 7th 2021 capacitor death)
 class PoolRanLongEnough(threading.Thread):
-    startRunning = None
+    """When the Pool Pump malfunction, it stops itself in less than 2
+    minutes (see July 7th 2021 capacitor death).
+    """
+    start_running = None
     def __init__(self, config, seconds):
-        super(PoolRanLongEnough, self).__init__()
+        super().__init__()
         self.seconds = seconds
         self.sensor = config['sensors']
 
@@ -143,23 +151,26 @@ class PoolRanLongEnough(threading.Thread):
                "Pool stopped after a few minutes")
     def run(self):
         usage = reader.read()
-        if not self.startRunning:
+        if not self.start_running:
             if usage[self.sensor] > .1:
-                self.startRunning = datetime.now()
+                self.start_running = datetime.now()
             return True
         if usage[self.sensor] > .1:
             return True
-        if datetime.now() > self.startRunning + timedelta(seconds=self.seconds):
-            self.startRunning = None
+        if datetime.now() > self.start_running + timedelta(seconds=self.seconds):
+            self.start_running = None
             return True
         return False
 
-# 2. TODO: Out of range power consumption (June 21 2021: pool filter
-#    head cracked)
-# 3. Pool filter is dirty
+# TODO: Out of range power consumption (June 21 2021: pool filter head
+# cracked)
+
 class PoolFilterIsClean(threading.Thread):
+    """When the pool filter is dirty, the power consumption of the pool
+pump drops.
+    """
     def __init__(self, config):
-        super(PoolFilterIsClean, self).__init__()
+        super().__init__()
         self.sensor = config['sensors']
 
     @test_loop('PoolFilterIsClean', 'Pool filter is dirty',
@@ -172,81 +183,85 @@ class PoolFilterIsClean(threading.Thread):
                 power.append(current[self.sensor])
         return median(power) > 1.8
 
-ev_lock = threading.Lock()
-ev = None
-def ev_is_connected():
-    if not ev:
+_charger_lock = threading.Lock()
+_charger = None
+def car_is_plugged_in():
+    if not _charger:
         return False
-    with ev_lock:
-        return ev.isConnected()
+    with _charger_lock:
+        return _charger.isConnected()
 
-# Car
-# ----------------
-# 1. Car is in the garage but not plugged-in
+# Car Charging and Monitoring
+# ---------------------------
 class CarIsPluggedIn(threading.Thread):
+    """Detect when the car is in the garage but not plugged-in."""
     def __init__(self, config):
-        super(CarIsPluggedIn, self).__init__()
+        super().__init__()
         self.config = config
-        self.pluggedIn = self.inTheGarage = datetime(1970, 1, 1)
+        self.plugged_in = self.in_the_garage = datetime(1970, 1, 1)
 
     @test_loop('CarIsPluggedIn',
                'The car is in the garage but is not plugged in',
                end_msg = 'The car is now plugged in',
                sleep = 15)
     def run(self):
-        if ev_is_connected():
+        if car_is_plugged_in():
             debug('Car is plugged in')
-            self.pluggedIn = datetime.now()
-            self.inTheGarage = datetime(1970, 1, 1)
+            self.plugged_in = datetime.now()
+            self.in_the_garage = datetime(1970, 1, 1)
             return True
         # Car is not connected, let's give it some time to exit the
         # garage
         now = datetime.now()
-        if now < self.pluggedIn + timedelta(minutes=10):
+        if now < self.plugged_in + timedelta(minutes=10):
             return True
         # Car detection
-        if self.inTheGarage == datetime(1970, 1, 1):
+        if self.in_the_garage == datetime(1970, 1, 1):
             if self.config['obd_MAC'] in discover_devices():
                 debug('Car entered the garage')
-                self.inTheGarage = now
+                self.in_the_garage = now
             return True
         # Car has been detected for a while but it still is not
         # plugged in
-        return now < self.inTheGarage + minutes(minutes=10)
+        return now < self.in_the_garage + timedelta(minutes=10)
 
-# 2. Car is connected but its state of charge is not up to date
 class CarStateOfCharge(threading.Thread):
+    """Car is connected but its state of charge is not up to date."""
     def __init__(self, config):
-        super(CarStateOfCharge, self).__init__()
+        super().__init__()
         self.sensor = CarData(config)
-        self.pluggedIn = datetime(1970, 1, 1)
+        self.plugged_in = datetime(1970, 1, 1)
 
     @test_loop('CarStateOfCharge',
                'Car has been plugged in but the state of charge is outdated',
                sleep=30)
     def run(self):
-        if not ev_is_connected():
-            self.pluggedIn = datetime(1970, 1, 1)
-        elif not self.pluggedIn:
-            self.pluggedIn = datetime.now()
-        if datetime.now() < self.pluggedIn + timedelta(seconds=4 * 60):
+        if not car_is_plugged_in():
+            self.plugged_in = datetime(1970, 1, 1)
+        elif not self.plugged_in:
+            self.plugged_in = datetime.now()
+        if datetime.now() < self.plugged_in + timedelta(seconds=4 * 60):
             return True
         return self.sensor.read() and \
-            self.sensor.datetime >= self.pluggedIn - timedelta(seconds=10 * 60)
+            self.sensor.datetime >= self.plugged_in - timedelta(seconds=10 * 60)
 
-# Wifi
-# ----
-# Sometimes the wifi router misbehaves and the communications start
-# failing. Device disconnection and re-connection usually fixes it.
+# Internet Connection / Wifi
+# --------------------------
 def restart_wifi():
+    """Restart the wifi module using the RFKILL command."""
     debug('Restarting wifi...')
-    Popen(['rfkill', 'block', 'wifi']).terminate()
+    with Popen(['rfkill', 'block', 'wifi']) as process:
+        process.wait()
     time.sleep(10)
-    Popen(['rfkill', 'unblock', 'wifi']).terminate()
+    with Popen(['rfkill', 'unblock', 'wifi']) as process:
+        process.wait()
 @test_loop('Internet access',
            'Lost Internet Access', 'Internet access restored',
            on_fail=restart_wifi, min_failure=12)
 def internet_access():
+    """Sometimes the wifi router misbehaves and the communications start
+failing. Device disconnection and re-connection usually fixes it.
+    """
     with status_lock:
         if 'Emporia read' in status and 'ecobee alive' in status:
             return bool(status['Emporia read'] or status['ecobee alive'])
@@ -256,9 +271,9 @@ def main():
     config = init(os.path.splitext(__file__)[0] + ".log")
 
     global reader
-    reader = SensorReader(config['Emporia'])
-    global ev
-    ev = MyWallBox(config['Wallbox'])
+    reader = UsageReader(config['Emporia'])
+    global _charger
+    _charger = MyWallBox(config['Wallbox'])
 
     threading.Thread(target=hvac_yellow).start()
     threading.Thread(target=hvac_red).start()

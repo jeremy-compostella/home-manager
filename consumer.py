@@ -272,7 +272,7 @@ class MyEcobee(Sensor, Consumer):
                        slot(stop.hour, stop.minute)):
             today[i] = climate.climate_ref
         for i in range(slot(23, 30), slot(stop.hour, stop.minute) - 1, -1):
-            if (today[i] != climate.climate_ref):
+            if today[i] != climate.climate_ref:
                 prev = today[i]
             else:
                 today[i] = prev
