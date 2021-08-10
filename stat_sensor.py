@@ -298,8 +298,8 @@ def main():
             reader = SensorLogReader(filename=args.file)
             plot_file = reader.filename.replace(".csv", "") + ".pdf"
             plot(reader, title, consumers, producers, filename=plot_file)
-            with open(plot_file, "rb") as f:
-                part = MIMEApplication(f.read(), Name=basename(plot_file))
+            with open(plot_file, "rb") as file:
+                part = MIMEApplication(file.read(), Name=basename(plot_file))
             part['Content-Disposition'] = 'attachment; filename="%s"' % \
                 basename(plot_file)
             msg.attach(part)

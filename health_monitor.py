@@ -206,7 +206,6 @@ class CarIsPluggedIn(threading.Thread):
                sleep = 15)
     def run(self):
         if car_is_plugged_in():
-            debug('Car is plugged in')
             self.plugged_in = datetime.now()
             self.in_the_garage = datetime(1970, 1, 1)
             return True
