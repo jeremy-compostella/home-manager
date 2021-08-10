@@ -33,7 +33,7 @@ from datetime import datetime, timedelta
 from pyemvue.enums import Scale
 
 from consumer import Consumer, MyWallBox
-from sensor import MyVue2
+from sensor import MyVue2, CarData
 from tools import init, debug, get_utility, read_settings
 
 def log_state(usage, charger):
@@ -50,7 +50,9 @@ def stop_charge_and_sleep(msg, charger, seconds):
 
 DEFAULT_SETTINGS = { 'coefficient':1,
                      'minimal_charge':0,
-                     'maximize':False }
+                     'maximize':False,
+                     'emergency_soc_threshold':0,
+                     'emergency_charge_power':0 }
 
 def main():
     prefix = os.path.splitext(__file__)[0]
@@ -64,6 +66,7 @@ def main():
         else:
             consumers.append(Consumer(config[current]))
     vue = MyVue2(config['Emporia'])
+    car_data = CarData(config['CarData'])
     utility = get_utility()
     debug("... is now ready to run")
     while True:
@@ -101,6 +104,12 @@ def main():
             if min_power * settings.coefficient < available < min_power:
                 debug("Enforcing charge rate of %.02f KW" % charger.power[0])
                 available = charger.power[0]
+            soc = car_data.read()['EV SoC']
+            if soc < settings.emergency_soc_threshold and \
+               available < settings.emergency_charge_power:
+                debug("Low SoC (%.1f%%), force charging at %.1fKWh" %
+                      (soc, settings.emergency_charge_power))
+                available = settings.emergency_charge_power
             if settings.minimal_charge > 0 and available < settings.minimal_charge:
                 debug("Enforcing minimal charge rate of %.02f KW" %
                       settings.minimal_charge)
