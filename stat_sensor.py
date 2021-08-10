@@ -36,6 +36,7 @@ import argparse
 import os
 import re
 
+from datetime import datetime, timedelta
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -66,7 +67,20 @@ def get_sensors_and_label(val, items):
 
 def plot(reader, title, consumers, producers, filename=None):
     val = { }
+    prev_time=datetime(3000, 1, 1)
     for current in iter(reader):
+        # If there is a significant gap in the data, insert fake zero
+        # data to make it more visible in the diagram
+        if prev_time + timedelta(minutes=3) < current['time']:
+            for key, value in current.items():
+                if isinstance(value, (float, int)):
+                    val[key].append(value if value > 10 else 0)
+            val['time'].append(prev_time + timedelta(minutes=1))
+            for key, value in current.items():
+                if isinstance(value, (float, int)):
+                    val[key].append(value if value > 10 else 0)
+            val['time'].append(current['time'] - timedelta(minutes=1))
+        prev_time = current['time']
         for key, value in current.items():
             if not key in val:
                 val[key] = [ value ]
