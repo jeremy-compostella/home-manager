@@ -49,7 +49,7 @@ def stop_charge_and_sleep(msg, charger, seconds):
     time.sleep(seconds)
 
 DEFAULT_SETTINGS = { 'coefficient':1,
-                     'minimal_charge':0,
+                     'minimal_power':0,
                      'maximize':False,
                      'emergency_soc_threshold':0,
                      'emergency_charge_power':0 }
@@ -102,7 +102,7 @@ def main():
         if not utility or not utility.isOnPeak():
             min_power = charger.power[0]
             if min_power * settings.coefficient < available < min_power:
-                debug("Enforcing charge rate of %.02f KW" % charger.power[0])
+                debug("Enforcing minimal charge power of %.02f KW" % min_power)
                 available = charger.power[0]
             soc = car_data.read()['EV SoC']
             if soc < settings.emergency_soc_threshold and \
@@ -110,10 +110,10 @@ def main():
                 debug("Low SoC (%.1f%%), force charging at %.1fKWh" %
                       (soc, settings.emergency_charge_power))
                 available = settings.emergency_charge_power
-            if settings.minimal_charge > 0 and available < settings.minimal_charge:
-                debug("Enforcing minimal charge rate of %.02f KW" %
-                      settings.minimal_charge)
-                available = settings.minimal_charge
+            if settings.minimal_power > 0 and available < settings.minimal_power:
+                debug("Enforcing minimal charge power of %.02f KW" %
+                      settings.minimal_power)
+                available = settings.minimal_power
             maximize = settings.maximize
 
         entered_at = datetime.now()
