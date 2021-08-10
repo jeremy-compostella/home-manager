@@ -81,7 +81,7 @@ def odometer(messages):
 CMDS={ 'EV SoC':obd.OBDCommand('SoC', 'State of Charge', b'228334', 4,
                                percent, 1, True, header=b'7E4'),
        'EV mileage':obd.OBDCommand('Mileage', 'Mileage', b'2200A6', 7,
-                                   odometer, 1, True, header=b'7E0') }
+                                   odometer, 0b11111111, True, header=b'7E0') }
 
 def read_car_data(myobd):
     debug('Retrieving data from the car')
