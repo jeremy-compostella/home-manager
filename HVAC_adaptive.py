@@ -126,7 +126,7 @@ def main():
         if early_schedule:
             if charger.isConnected():
                 hvac.setProgramSchedule(program, saved['start'], saved['stop'])
-                notify('HVAC: Stopping early schedule')
+                debug('HVAC: Stopping early schedule')
                 early_schedule = False
                 continue
             if datetime.now() >= saved['start']:
@@ -140,7 +140,7 @@ def main():
                 saved = info
             hvac.setProgramSchedule(program, datetime.now(), saved['stop'])
             early_schedule = True
-            notify('HVAC: Starting early schedule')
+            debug('HVAC: Starting early schedule')
             wait_for_next_minute()
             continue
 
@@ -168,7 +168,7 @@ def main():
         if allocated > round(required / 30) * 30:
             hvac.setProgramSchedule(program, info['start'] + timedelta(minutes=30),
                                     info['stop'])
-            notify("HVAC: '%s' program schedule postponed by 30 minutes" % program)
+            debug("HVAC: '%s' program schedule postponed by 30 minutes" % program)
             if not saved:
                 saved = info
 
