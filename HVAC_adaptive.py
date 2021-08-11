@@ -162,9 +162,9 @@ def main():
 
         allocated = (info['stop'] - info['start']).seconds / 60
         required = estimate(database, weather.read(),
-                            info['current'], info['target'] + .7)
+                            info['current'], info['target'] + .8)
         debug("It should take %d minutes to go from %.01fF to %.01fF" %
-              (required, info['current'], info['target'] + .7))
+              (required, info['current'], info['target'] + .8))
         if allocated > round(required / 30) * 30:
             hvac.setProgramSchedule(program, info['start'] + timedelta(minutes=30),
                                     info['stop'])
