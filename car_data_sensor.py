@@ -150,7 +150,6 @@ def main():
     wdt = Watchdog()
     wdt.start()
 
-    obd.logger.setLevel(obd.logging.DEBUG)
     debug("... is now ready to run")
     while True:
         wdt.kick()
