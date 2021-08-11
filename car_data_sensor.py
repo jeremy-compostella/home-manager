@@ -84,7 +84,6 @@ CMDS={ 'EV SoC':obd.OBDCommand('SoC', 'State of Charge', b'228334', 4,
                                    odometer, 0b11111111, True, header=b'7E0') }
 
 def read_car_data(myobd):
-    debug('Retrieving data from the car')
     res = {}
     for key, cmd in CMDS.items():
         for i in range(6):
