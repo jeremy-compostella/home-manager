@@ -114,7 +114,7 @@ stops running but the Heat Pump is still running.
 @test_loop('heat pump red',
            "Air handler is running while Heat Pump is stopped",
            "Heat pump/air handler is back to normal",
-           min_failure = 48)
+           min_failure = 60)
 def hvac_red():
     """When the Red wire is shunt by float T-switch, the air handler keeps
 running but the condensation and the heat pump do not. To avoid false
