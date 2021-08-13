@@ -181,7 +181,7 @@ pump drops.
         for current in iter(reader):
             if current[self.sensor] >= .4:
                 power.append(current[self.sensor])
-        return median(power) > 1.8
+        return median(power) > 1.55
 
 _charger_lock = threading.Lock()
 _charger = None
