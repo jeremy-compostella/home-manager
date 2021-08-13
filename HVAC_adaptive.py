@@ -135,7 +135,7 @@ def main():
             continue
         if datetime.now() < info['start'] and \
            not charger.isConnected() and \
-           hvac.power[-1] + vue.read()['net'] < 1:
+           hvac.power[-1] + vue.read()['net'] < .3:
             if not saved:
                 saved = info
             hvac.setProgramSchedule(program, datetime.now(), saved['stop'])
