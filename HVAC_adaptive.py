@@ -129,7 +129,7 @@ def main():
                 debug('HVAC: Stopping early schedule')
                 early_schedule = False
                 continue
-            if datetime.now() >= saved['start']:
+            if datetime.now() >= info['start']:
                 early_schedule = False
             wait_for_next_minute()
             continue
