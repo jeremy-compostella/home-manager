@@ -211,10 +211,25 @@ def build_report(sums, res, sensor, utility, producers, consumers):
             report += 'Car:\n'
             report += '- State of Charge: Min %.1f%%, Max %.1f%%, Latest %.1f%%\n' % \
                 (min(sensor['EV SoC']), max(sensor['EV SoC']), sensor['EV SoC'][-1])
+    miles = 0
     if 'EV mileage' in sensor and sensor['EV mileage']:
-        report += '- Mileage: %.1f miles, +%.1f miles\n' % \
-            (sensor['EV mileage'][-1],
-             sensor['EV mileage'][-1] - sensor['EV mileage'][0])
+        report += '- Mileage: %.1f miles' % sensor['EV mileage'][-1]
+        miles = sensor['EV mileage'][-1] - sensor['EV mileage'][0]
+        report += ', +%.1f miles\n' % miles if miles > 0 else '\n'
+    if 'EV SoC' in sensor:
+        used = 0
+        prev_soc = sensor['EV SoC'][0]
+        for soc in sensor['EV SoC'][1:]:
+            if soc < prev_soc:
+                used += (prev_soc - soc) * 60 / 100
+            prev_soc = soc
+        if miles:
+            report += '- Consumption: %.1f KWh' % used
+            if 'EV mileage' in sensor and sensor['EV mileage']:
+                rate = ((sensor['EV mileage'][-1] - sensor['EV mileage'][0])) / used
+                report += ", %.1f miles/KWh\n" % rate
+            else:
+                report += '\n'
     report += "\n"
     report += "Summary:\n"
     from_producers = total - sums['imported']
