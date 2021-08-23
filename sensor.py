@@ -138,6 +138,20 @@ class MyVue2(Sensor):
             self.usage[self.mapping[i]] = usage[i].usage * factor[scale]
         return self.usage
 
+class EmporiaProxy(Sensor):
+    def __init__(self, config):
+        self.address = (config['host'], int(config['port']))
+
+    def read(self, scale=Scale.MINUTE.value):
+        try:
+            proxy = Client(self.address)
+            proxy.send(scale)
+            data = proxy.recv()
+            proxy.close()
+            return data
+        except:
+            return {}
+
 class MyWirelessTag(Sensor):
     expirationTime = None
 
