@@ -33,7 +33,7 @@ from datetime import datetime, timedelta
 from pyemvue.enums import Scale
 
 from consumer import Consumer, MyWallBox
-from sensor import MyVue2, CarData
+from sensor import EmporiaProxy, CarData
 from tools import init, debug, get_utility, read_settings
 
 def log_state(usage, charger):
@@ -65,7 +65,7 @@ def main():
             consumers.append(klass(config[current]))
         else:
             consumers.append(Consumer(config[current]))
-    vue = MyVue2(config['Emporia'])
+    vue = EmporiaProxy(config['EmporiaProxy'])
     car_data = CarData(config['CarData'])
     utility = get_utility()
     debug("... is now ready to run")
