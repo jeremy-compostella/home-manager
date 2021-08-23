@@ -81,7 +81,11 @@ def main():
         entered_at = datetime.now()
         while True:
             try:
-                usage=vue.read(scale=Scale.SECOND.value)
+                if charger.isCharging():
+                    scale = Scale.SECOND.value
+                else:
+                    scale = Scale.MINUTE.value
+                usage=vue.read(scale)
                 break
             except:
                 if entered_at + timedelta(seconds=90) < datetime.now():
