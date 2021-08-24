@@ -29,43 +29,68 @@
 import csv
 import os
 import sys
+import threading
 
 from datetime import datetime, timedelta
 
 from consumer import MyEcobee, MyWallBox
-from sensor import MyOpenWeather, MyVue2
-from tools import init, debug, notify, wait_for_next_minute
+from sensor import MyOpenWeather, EmporiaProxy
+from tools import init, debug, wait_for_next_minute
+
+class PowerStatistics(threading.Thread):
+    def __init__(self, size, vue):
+        super().__init__()
+        self.size = size
+        self.vue = vue
+        self.lock = threading.Lock()
+        self.window = []
+
+    def run(self):
+        while True:
+            with self.lock:
+                try:
+                    self.window.append(self.vue.read())
+                except:
+                    if len(self.window) > 0:
+                        self.window.pop(0)
+                if len(self.window) > self.size:
+                    self.window.pop(0)
+            wait_for_next_minute()
+
+    @staticmethod
+    def __net_for(usage, ignore = []):
+        net = usage['net']
+        for consumer in ignore:
+            net -= consumer.totalPower(usage)
+        return net
+
+    def available_for(self, consumer, ignore = []):
+        with self.lock:
+            count = net = 0
+            for usage in self.window[-2:]:
+                net += self.__net_for(usage, ignore)
+                count += 1
+        return -1 * net / (consumer.power[-1] * count)
+
+    def covered_by_production(self, consumer, ignore = []):
+        with self.lock:
+            net = used = 0
+            for usage in self.window:
+                if consumer.isRunning(usage):
+                    net += self.__net_for(usage, ignore)
+                    used += consumer.totalPower(usage)
+        return 1 if used == 0 else -1 * (net - used) / used
 
 def load_database(filename):
     return list(csv.DictReader(open(filename, 'r'),
                                fieldnames=['temperature', 'rate'],
                                quoting=csv.QUOTE_NONNUMERIC))
 
-def cannot_warm_up(weather):
-    bad = [ {'status':'Clouds', 'detailed status':'overcast clouds' },
-            {'status':'Clouds', 'detailed status':'broken clouds' },
-            {'status':'Thunderstorm' },
-            {'status':'Rain' },
-            {'status':'Mist' } ]
-    for desc in bad:
-        if weather['status'] == desc['status']:
-            if 'detailed status' in desc:
-                if weather['detailed status'] == desc['detailed status']:
-                    return True
-            else:
-                return True
-
-def estimate(database, weather, indoor, goal):
+def estimate(database, weather, deviation):
     item = None
     prev= None
 
     outdoor = weather['outdoor temp']
-    if cannot_warm_up(weather):
-        debug("The weather is too bad to allow the air to warm up")
-        if outdoor <= goal + 10 and indoor <= goal + 8:
-            debug("The outdoor and indoor temperatures are low")
-            return 0
-
     if outdoor < database[0]['temperature']:
         item = database[0]
     elif outdoor > database[-1]['temperature']:
@@ -79,10 +104,7 @@ def estimate(database, weather, indoor, goal):
     if item['temperature'] != outdoor and prev:
         rate = (item['rate'] + prev['rate']) / 2
 
-    minutes = (indoor - goal) * rate
-    if cannot_warm_up(weather):
-        minutes /= 2
-    return minutes
+    return timedelta(minutes=deviation * rate)
 
 def main():
     prefix = os.path.splitext(__file__)[0]
@@ -91,86 +113,84 @@ def main():
     if not 'adjustable_program' in config['Ecobee']:
         sys.exit("No adjustable program found in the Ecobee section")
 
-    program = config['Ecobee']['adjustable_program']
-
     hvac = MyEcobee(config['Ecobee'])
     weather = MyOpenWeather(config['OpenWeather'])
     charger = MyWallBox(config['Wallbox'])
-    vue = MyVue2(config['Emporia'])
+    stat = PowerStatistics(15, EmporiaProxy(config['EmporiaProxy']))
+    stat.start()
+    program = hvac.get_program(config['Ecobee']['adjustable_program'])
 
     database = load_database("hvac_database.csv")
-    saved = {}
 
     debug("... is now ready to run")
-    early_schedule = False
+    late_schedule = False
     while True:
-        info = hvac.programInfo(program)
-        if not info:
+        if program.start.weekday() != datetime.today().weekday():
+            debug('Loading program')
+            program.load()
+
+        if program.is_over():
+            if program.has_been_alterated:
+                program.restore()
+                debug("program schedule restored - [ %s, %s ]" %
+                      (program.start, program.stop))
+            late_schedule = False
             wait_for_next_minute()
             continue
 
-        if saved and datetime.now() >= saved['stop']:
-            hvac.setProgramSchedule(program, saved['start'], saved['stop'])
-            notify("HVAC: '%s' Program schedule restored" % program)
-            saved = None
-            early_schedule = False
-
-        if datetime.now() >= info['stop']:
+        if program.is_running:
+            debug('stat.covered_by_production=%.4f' %
+                  stat.covered_by_production(hvac, ignore = [ charger ]))
+            if charger.isConnected() and \
+               not charger.isFullyCharged() and \
+               not late_schedule:
+                debug('Stopping HVAC by 30 minutes')
+                program.start = datetime.now() + timedelta(minutes=30)
+            elif program.has_run_for() >= timedelta(minutes=15) and \
+                 stat.covered_by_production(hvac, [ charger ]) < .7:
+                debug('Production does not cover %d%% of power need' % 70)
+                late_schedule = False
+                program.start = datetime.now() + timedelta(minutes=30)
             wait_for_next_minute()
             continue
 
-        # Early schedule: if the car is not plugged-in and the right
-        # conditions are met, start PROGRAM earlier to get the house
-        # to the right temperature before the car is back and ready to
-        # be charged.
-        if early_schedule:
-            if charger.isConnected():
-                hvac.setProgramSchedule(program, saved['start'], saved['stop'])
-                debug('HVAC: Stopping early schedule')
-                early_schedule = False
-                continue
-            if datetime.now() >= info['start']:
-                early_schedule = False
-            wait_for_next_minute()
-            continue
-        if datetime.now() < info['start'] and \
-           not charger.isConnected() and \
-           hvac.power[-1] + vue.read()['net'] < .3:
-            if not saved:
-                saved = info
-            hvac.setProgramSchedule(program, datetime.now(), saved['stop'])
-            early_schedule = True
-            debug('HVAC: Starting early schedule')
+        # Do not ridiculously start too soon
+        if program.time_remaining() > timedelta(hours=5):
             wait_for_next_minute()
             continue
 
-        # If the car is not connected or is fully charged, prioritize
-        # comfort over consumption by not postponing PROGRAM.
-        if not charger.isConnected() or charger.isFullyCharged():
-            debug("HVAC: use power while available")
+        available_for_hvac = stat.available_for(hvac, [ charger ])
+        debug('available_for_hvac=%.4f' % available_for_hvac)
+        # Early schedule: We want to handle two situations:
+        # - If the car has left the garage, we want to get as soon and
+        #   as close as possible to desired temperature to have
+        #   available power for when the car is back in the garage and
+        #   need to charge. Even if we have to get part of the power
+        #   from the grid.
+        # - If the car is sitting in the garage and fully charged but
+        #   we have enough to cover 100% of the HVAC system, let's
+        #   take advantage of it and improve the comfort at home.
+        if (not charger.isConnected() and available_for_hvac >= .85) or \
+           (charger.isFullyCharged() and available_for_hvac >= 1):
+            debug('Starting early schedule')
+            program.start = datetime.now()
             wait_for_next_minute()
             continue
 
-        # Late schedule: based on the home thermal property and
-        # current outdoor and indoor temperatures, predict the
-        # required time to get the house to the right temperature and
-        # delay the starting time of PROGRAM accordingly.
-        if datetime.now() < info['start'] - timedelta(minutes=5) or \
-           datetime.now() > info['start']:
-            wait_for_next_minute()
-            continue
-
-        allocated = (info['stop'] - info['start']).seconds / 60
-        required = estimate(database, weather.read(),
-                            info['current'], info['target'] + .8)
-        debug("It should take %d minutes to go from %.01fF to %.01fF" %
-              (required, info['current'], info['target'] + .8))
-        if allocated > round(required / 30) * 30:
-            hvac.setProgramSchedule(program, info['start'] + timedelta(minutes=30),
-                                    info['stop'])
-            debug("HVAC: '%s' program schedule postponed by 30 minutes" % program)
-            if not saved:
-                saved = info
+        # Late schedule
+        deviation = program.temperature_deviation()
+        deviation += -2.8 if deviation > 0 else 2.8
+        required = estimate(database, weather.read(), deviation)
+        debug("It should take %s to change the temperature_deviation by %.01fF" %
+              (required, deviation))
+        debug('Time remaining %s' % program.time_remaining())
+        if program.time_remaining() <= required and available_for_hvac >= .7:
+            debug('Time to start HVAC to reach the desired temperature on time')
+            program.start = datetime.now()
+            late_schedule = True
+        elif program.starting_in_less_than(timedelta(minutes=3)):
+            debug('Postponing by 30 minutes')
+            program.start = datetime.now() + timedelta(minutes=33)
 
         wait_for_next_minute()
 
