@@ -74,10 +74,6 @@ class MyOpenWeather(Sensor):
         return not sunrise < datetime.now() < sunset
 
 class MyVue2(Sensor):
-    deviceGids = []
-    mapping = None
-    usage = { }
-
     def __connect(self):
         for i in range(3):
             try:
@@ -89,7 +85,7 @@ class MyVue2(Sensor):
                     return
 
                 logging.warning("Unexpected error in __connect")
-                sleep(5)
+                time.sleep(5)
             except:
                 raise Exception("Communication Error",
                                 "Fail to communicate with Emporia server")
@@ -103,40 +99,55 @@ class MyVue2(Sensor):
         with open(self.tokenFile) as f:
             self.data = json.load(f)
         self.__connect()
-        devices = self.vue.get_devices()
-        for device in devices:
-            self.deviceGids.append(device.device_gid)
-        self.mapping = config["map"].split(",")
+        self.gids = [ dev.device_gid for dev in self.vue.get_devices() ]
+        self.gids = list(set(self.gids))
+        self.mapping = config['map'].split(",") if 'map' in config else None
 
     def __read(self, scale):
         for i in range(3):
             try:
-                return self.vue.get_devices_usage(self.deviceGids, None,
-                                                  scale=scale,
-                                                  unit=Unit.KWH.value)
+                return self.vue.get_device_list_usage(self.gids, None,
+                                                      scale=scale,
+                                                      unit=Unit.KWH.value)
             except:
                 logging.warning("Unexpected error in __read")
                 time.sleep(5)
         raise Exception("Communication Error",
                         "Fail to communicate with Emporia server")
 
+    def parse_usage(self, usage):
+        result = {}
+        for gid, device in usage.items():
+            for channelnum, channel in device.channels.items():
+                if channel.name not in [ 'TotalUsage', 'Balance' ]:
+                    result[channel.name] = channel.usage
+                if channel.nested_devices:
+                    result.update(parse_usage(channel.nested_devices))
+        return result
+
     def read(self, scale=Scale.MINUTE.value):
         usage = self.__read(scale)
-        if len(usage) < len(self.mapping):
+        result = self.parse_usage(usage)
+        if len(result) < 1:
             logging.debug("devices list too short (%d), reconnecting...",
                           len(usage))
             self.__connect()
             usage = self.__read(scale)
-            if len(usage) < len(self.mapping):
+            result = self.parse_usage(usage)
+            if len(result) < 1:
                 raise Exception("Communication Error",
                                 "device list still too short")
         factor={ Scale.SECOND.value: 60 * 60,
                  Scale.MINUTE.value: 60,
                  Scale.MINUTES_15.value: 4,
                  Scale.HOUR.value: 1 }
-        for i in range(len(self.mapping)):
-            self.usage[self.mapping[i]] = usage[i].usage * factor[scale]
-        return self.usage
+        result = { k:v * factor[scale] for (k, v) in result.items() }
+        if self.mapping:
+            final = {}
+            for k, (k2, v) in zip(self.mapping, result.items()):
+                final[k] = v
+            return final
+        return result
 
 class EmporiaProxy(Sensor):
     def __init__(self, config):
