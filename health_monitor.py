@@ -38,7 +38,7 @@ from bluetooth import discover_devices
 from pyemvue.enums import Scale
 
 from consumer import MyEcobee, MyWallBox
-from sensor import Sensor, MyVue2, CarData
+from sensor import Sensor, EmporiaProxy, CarData
 from tools import init, alert, debug, SensorLogReader
 
 status = {}
@@ -74,36 +74,25 @@ def test_loop(name, msg, end_msg = None, sleep = 15, end = False, min_failure = 
 
 reader = None
 class UsageReader(Sensor):
-    """Encapsulation of the MyView2 reader as test_loop."""
-    expiration = None
-    usage = None
+    """Encapsulation of the EmporiaProxy reader as test_loop."""
 
     def __init__(self, config):
-        self.vue = MyVue2(config)
-        self._usage_lock = threading.Lock()
+        self.proxy = EmporiaProxy(config)
 
     @test_loop('Emporia read', "Failed to access Emporia", "Emporia is back",
-               min_failure = 3, end = True)
-    def __read(self):
+               min_failure = 2, end = True)
+    def read(self, scale=Scale.MINUTE.value):
         try:
-            return self.vue.read(scale=Scale.SECOND.value)
+            return self.proxy.read(scale)
         except:
             return False
-
-    def read(self):
-        with self._usage_lock:
-            if self.expiration and datetime.now() < self.expiration:
-                return self.usage
-            self.usage = self.__read()
-            self.expiration = datetime.now() + timedelta(seconds=15)
-        return self.usage
 
 # Heating, Ventilation, and Air Conditioning (HVAC)
 # -------------------------------------------------
 @test_loop('Heat pump yellow',
            "Heat pump running while air handler is stopped",
            "Heat pump/air handler is back to normal",
-           min_failure = 3)
+           min_failure = 2, sleep = 60)
 def hvac_yellow():
     """When the Yellow wire is shunt by float T-switch the air handler
 stops running but the Heat Pump is still running.
@@ -114,7 +103,7 @@ stops running but the Heat Pump is still running.
 @test_loop('heat pump red',
            "Air handler is running while Heat Pump is stopped",
            "Heat pump/air handler is back to normal",
-           min_failure = 60)
+           min_failure = 20, sleep = 60)
 def hvac_red():
     """When the Red wire is shunt by float T-switch, the air handler keeps
 running but the condensation and the heat pump do not. To avoid false
@@ -148,7 +137,8 @@ class PoolRanLongEnough(threading.Thread):
         self.sensor = config['sensors']
 
     @test_loop('PoolRanLongEnough',
-               "Pool stopped after a few minutes")
+               "Pool stopped after a few minutes",
+               sleep=60)
     def run(self):
         usage = reader.read()
         if not self.start_running:
@@ -270,7 +260,7 @@ def main():
     config = init(os.path.splitext(__file__)[0] + ".log")
 
     global reader
-    reader = UsageReader(config['Emporia'])
+    reader = UsageReader(config['EmporiaProxy'])
     global _charger
     _charger = MyWallBox(config['Wallbox'])
 
