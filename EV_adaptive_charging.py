@@ -69,10 +69,15 @@ def main():
     car_data = CarData(config['CarData'])
     utility = get_utility()
     debug("... is now ready to run")
+    charger_plugged_in = False
     while True:
         if not charger.isConnected():
             stop_charge_and_sleep("Waiting for car connection", charger, 10)
+            charger_plugged_in = False
             continue
+
+        if not charger_plugged_in:
+            charger_plugged_in = datetime.now()
 
         if charger.isFullyCharged():
             stop_charge_and_sleep("Fully charged, nothing to do", charger, 60)
@@ -81,7 +86,8 @@ def main():
         entered_at = datetime.now()
         while True:
             try:
-                if charger.isCharging():
+                if charger.isCharging() or \
+                    datetime.now() <= charger_plugged_in + timedelta(minutes=2):
                     scale = Scale.SECOND.value
                 else:
                     scale = Scale.MINUTE.value
