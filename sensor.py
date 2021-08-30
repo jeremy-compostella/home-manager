@@ -143,6 +143,8 @@ class MyVue2(Sensor):
                  Scale.HOUR.value: 1 }
         result = { k:v * factor[scale] for (k, v) in result.items() }
         if self.mapping:
+            if len(self.mapping) != len(result):
+                raise Exception("Missing device(s)")
             final = {}
             for k, (k2, v) in zip(self.mapping, result.items()):
                 final[k] = v
@@ -154,14 +156,13 @@ class EmporiaProxy(Sensor):
         self.address = (config['host'], int(config['port']))
 
     def read(self, scale=Scale.MINUTE.value):
-        try:
-            proxy = Client(self.address)
-            proxy.send(scale)
-            data = proxy.recv()
-            proxy.close()
+        proxy = Client(self.address)
+        proxy.send(scale)
+        data = proxy.recv()
+        proxy.close()
+        if data:
             return data
-        except:
-            return {}
+        raise Exception('Data from proxy is empty')
 
 class MyWirelessTag(Sensor):
     expirationTime = None
