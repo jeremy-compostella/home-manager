@@ -180,7 +180,11 @@ def car_is_plugged_in():
         return False
     with _charger_lock:
         return _charger.isConnected()
-
+def car_is_charging():
+    if not _charger:
+        return False
+    with _charger_lock:
+        return _charger.isCharging()
 # Car Charging and Monitoring
 # ---------------------------
 class CarIsPluggedIn(threading.Thread):
@@ -234,6 +238,20 @@ class CarStateOfCharge(threading.Thread):
         return self.sensor.read() and \
             self.sensor.datetime >= self.plugged_in - timedelta(seconds=10 * 60)
 
+class CarIsCharging(threading.Thread):
+    """Car is charging according to the charger but it is not draining any
+       current."""
+    def __init__(self, config):
+        super().__init__()
+
+    @test_loop('CarIsCharging', 'Car is charging but not draining any power',
+               sleep = 15, min_failure = 4)
+    def run(self):
+        if not car_is_charging():
+            return True
+        usage = reader.read(scale=Scale.SECOND.value)
+        return _charger.totalPower(usage) > .1
+
 # Internet Connection / Wifi
 # --------------------------
 def restart_wifi():
@@ -270,6 +288,7 @@ def main():
     PoolFilterIsClean(config['Pool']).start()
     CarIsPluggedIn(config['CarData']).start()
     CarStateOfCharge(config['CarData']).start()
+    CarIsCharging(config['Wallbox']).start()
     ecobee = MyEcobee(config['Ecobee'])
     threading.Thread(target=lambda: sensor_is_running(ecobee)).start()
     threading.Thread(target=internet_access).start()
