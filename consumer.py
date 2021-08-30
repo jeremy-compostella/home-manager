@@ -212,7 +212,7 @@ class MyEcobeeProgram():
         self.name = name
         self.ecobee = ecobee
         self.load()
-        self._started_at = False
+        self._started_at = None
 
     @property
     def start(self):
