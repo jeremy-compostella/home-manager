@@ -27,6 +27,7 @@
 # OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import os
+import time
 
 from datetime import datetime, timedelta
 from multiprocessing.connection import Listener
@@ -46,29 +47,30 @@ def main():
                          int(config['EmporiaProxy']['port'])))
     debug("... is now ready to run")
     while True:
-        conn = listener.accept()
-        scale = conn.recv()
-        data = {}
-        if scale not in cache or datetime.now() > cache[scale]['expiration_time']:
-            try:
-                debug('Reading with scale %s' % scale)
-                data = vue.read(scale)
-            except:
-                debug('Failed to read from Emporia servers')
-                pass
-            if data:
-                cache[scale] = { 'data':data }
-                if scale == Scale.SECOND.value:
-                    cache[scale]['expiration_time'] = \
-                        datetime.now() + timedelta(seconds=15)
-                else:
-                    cache[scale]['expiration_time'] = \
-                        datetime.now().replace(second=0, microsecond=0) + \
-                        timedelta(minutes=1)
-        else:
-            data = cache[scale]['data']
-        conn.send(data)
-        conn.close()
+        with listener.accept() as conn:
+            scale = conn.recv()
+            data = {}
+            if scale not in cache or datetime.now() > cache[scale]['expiration_time']:
+                for _ in range(3):
+                    try:
+                        data = vue.read(scale)
+                        debug('Read with scale %s %s: ' % (scale, data))
+                        break
+                    except:
+                        debug('Failed to read from Emporia servers')
+                        time.sleep(2)
+                if data:
+                    cache[scale] = { 'data':data }
+                    if scale == Scale.SECOND.value:
+                        cache[scale]['expiration_time'] = \
+                            datetime.now() + timedelta(seconds=15)
+                    else:
+                        cache[scale]['expiration_time'] = \
+                            datetime.now().replace(second=0, microsecond=0) + \
+                            timedelta(minutes=1)
+            else:
+                data = cache[scale]['data']
+            conn.send(data)
 
 if __name__ == "__main__":
     main()
