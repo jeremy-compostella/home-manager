@@ -178,7 +178,7 @@ class MyEcobeeProgram():
                               program=program)
         self.ecobee.update_thermostats(sel, thermostat=thermostat)
         self._start = start.replace(minute=(floor(start.minute / 30) * 30))
-        self._stop = stop.replace(minute=(floor(start.minute / 30) * 30))
+        self._stop = stop.replace(minute=(floor(stop.minute / 30) * 30))
 
     def restore(self):
         self.__reschedule(self._saved_start, self._saved_stop)
