@@ -35,7 +35,7 @@ from datetime import datetime, timedelta
 
 from consumer import MyEcobee, MyWallBox
 from sensor import MyOpenWeather, EmporiaProxy
-from tools import init, debug, wait_for_next_minute
+from tools import init, debug, wait_for_next_minute, read_settings
 
 class PowerStatistics(threading.Thread):
     def __init__(self, size, vue):
@@ -106,6 +106,12 @@ def estimate(database, weather, deviation):
 
     return timedelta(minutes=deviation * rate)
 
+DEFAULT_SETTINGS = { 'min_run':15,
+                     'min_coverage':.8,
+                     'unplugged_min_coverage':.85,
+                     'fully_charged_min_coverage':1,
+                     'temp_offset':0 }
+
 def main():
     prefix = os.path.splitext(__file__)[0]
     config = init(prefix + '.log')
@@ -116,7 +122,9 @@ def main():
     hvac = MyEcobee(config['Ecobee'])
     weather = MyOpenWeather(config['OpenWeather'])
     charger = MyWallBox(config['Wallbox'])
-    stat = PowerStatistics(15, EmporiaProxy(config['EmporiaProxy']))
+    settings = read_settings(prefix + '.ini', DEFAULT_SETTINGS)
+    stat = PowerStatistics(settings.min_run,
+                           EmporiaProxy(config['EmporiaProxy']))
     stat.start()
     program = hvac.get_program(config['Ecobee']['adjustable_program'])
 
@@ -125,6 +133,8 @@ def main():
     debug("... is now ready to run")
     late_schedule = False
     while True:
+        settings = read_settings(prefix + '.ini', DEFAULT_SETTINGS)
+
         if program.start.weekday() != datetime.today().weekday():
             debug('Loading program')
             program.load()
@@ -139,18 +149,19 @@ def main():
             continue
 
         if program.is_running:
-            debug('stat.covered_by_production=%.4f' %
-                  stat.covered_by_production(hvac, ignore = [ charger ]))
-            if charger.isConnected() and \
-               not charger.isFullyCharged() and \
-               not late_schedule:
-                debug('Stopping HVAC by 30 minutes')
-                program.start = datetime.now() + timedelta(minutes=30)
-            elif program.has_run_for() >= timedelta(minutes=15) and \
-                 stat.covered_by_production(hvac, [ charger ]) < .7:
-                debug('Production does not cover %d%% of power need' % 70)
-                late_schedule = False
-                program.start = datetime.now() + timedelta(minutes=30)
+            debug('HVAC is running and %.02f%% is covered by the production' %
+                  (100 * stat.covered_by_production(hvac, ignore = [ charger ])))
+            if program.has_run_for() >= timedelta(minutes=settings.min_run):
+                if charger.isConnected() and \
+                   not charger.isFullyCharged() and \
+                   not late_schedule:
+                    debug('Stopping HVAC by 30 minutes')
+                    program.start = datetime.now() + timedelta(minutes=30)
+                elif stat.covered_by_production(hvac, [ charger ]) < settings.min_coverage:
+                    debug('Production does not cover %d%% of power need' %
+                          (settings.min_coverage * 100))
+                    late_schedule = False
+                    program.start = datetime.now() + timedelta(minutes=30)
             wait_for_next_minute()
             continue
 
@@ -160,7 +171,8 @@ def main():
             continue
 
         available_for_hvac = stat.available_for(hvac, [ charger ])
-        debug('available_for_hvac=%.4f' % available_for_hvac)
+        debug('Current production could cover %.02f%% of HVAC' %
+              (available_for_hvac * 100))
         # Early schedule: We want to handle two situations:
         # - If the car has left the garage, we want to get as soon and
         #   as close as possible to desired temperature to have
@@ -170,8 +182,10 @@ def main():
         # - If the car is sitting in the garage and fully charged but
         #   we have enough to cover 100% of the HVAC system, let's
         #   take advantage of it and improve the comfort at home.
-        if (not charger.isConnected() and available_for_hvac >= .85) or \
-           (charger.isFullyCharged() and available_for_hvac >= 1):
+        if (not charger.isConnected() and \
+            available_for_hvac >= settings.unplugged_min_coverage) or \
+           (charger.isFullyCharged() and \
+            available_for_hvac >= settings.fully_charged_min_coverage):
             debug('Starting early schedule')
             program.start = datetime.now()
             wait_for_next_minute()
@@ -179,12 +193,12 @@ def main():
 
         # Late schedule
         deviation = program.temperature_deviation()
-        deviation += -2.8 if deviation > 0 else 2.8
+        deviation += -1 * settings.temp_offset if deviation > 0 else settings.temp_offset
         required = estimate(database, weather.read(), deviation)
-        debug("It should take %s to change the temperature_deviation by %.01fF" %
-              (required, deviation))
-        debug('Time remaining %s' % program.time_remaining())
-        if program.time_remaining() <= required and available_for_hvac >= .7:
+        debug("%s/%s to change the temperature_deviation by %.01fF" %
+              (required, program.time_remaining(), deviation))
+        if program.time_remaining() <= required and \
+           available_for_hvac >= settings.min_coverage:
             debug('Time to start HVAC to reach the desired temperature on time')
             program.start = datetime.now()
             late_schedule = True
