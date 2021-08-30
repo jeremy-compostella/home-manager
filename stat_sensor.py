@@ -98,6 +98,7 @@ def plot(reader, title, consumers, producers, filename=None):
     (sensors, labels) = get_sensors_and_label(val, producers)
     for (sensor, label) in zip(sensors, labels):
         ax.plot(val['time'], sensor, color='black', label=label, lw=.8)
+        ax.fill_between(val['time'], 0, sensor, facecolor='gray', alpha=0.2)
 
     ax.legend(loc='upper left', title=r"$\bf{Producers}$ and $\bf{Consumers}$")
     plt.grid(which='major', linestyle='dotted')
@@ -141,13 +142,7 @@ def parse_args():
     return parser.parse_args()
 
 def duration_string(duration):
-    if floor(duration / 60) == 0:
-        return "%dmin" % duration
-    if floor(duration / (24 * 60)) == 0:
-        return "%dh%02dmin" % (duration / 60, duration % 60)
-    days = duration / (24 * 60)
-    duration -= floor(days) * 24 * 60
-    return "%dd%dh%02dmin" % (days, duration / 60, duration % 60)
+    return "%s" % timedelta(minutes=duration)
 
 def compute_for(filename, utility, producers, consumers):
     sums = { k: 0 for k in ['imported', 'exported', 'produced', 'onpeak', 'offpeak' ] }
@@ -183,7 +178,7 @@ def compute_for(filename, utility, producers, consumers):
             res[item]['max'] = max(total, res[item]['max'])
     return sums, res, sensor, reader.date
 
-def build_report(sums, res, sensor, utility, producers, consumers):
+def build_report(sums, res, sensor, utility, producers, consumers, days):
     total = sum([ res[p]['sum'] for p in producers ]) - \
         sums['exported'] + sums['imported']
 
@@ -209,13 +204,21 @@ def build_report(sums, res, sensor, utility, producers, consumers):
         if len(sensor['EV SoC']) > 0:
             report += "\n"
             report += 'Car:\n'
-            report += '- State of Charge: Min %.1f%%, Max %.1f%%, Latest %.1f%%\n' % \
-                (min(sensor['EV SoC']), max(sensor['EV SoC']), sensor['EV SoC'][-1])
+            report += '- State of Charge: Min %.1f%%, Max %.1f%%' % \
+                (min(sensor['EV SoC']), max(sensor['EV SoC']))
+            if days > 1:
+                report += '\n'
+            else:
+                report += ', Latest %.1f%%\n' % sensor['EV SoC'][-1]
     miles = 0
     if 'EV mileage' in sensor and sensor['EV mileage']:
         report += '- Mileage: %.1f miles' % sensor['EV mileage'][-1]
         miles = sensor['EV mileage'][-1] - sensor['EV mileage'][0]
-        report += ', +%.1f miles\n' % miles if miles > 0 else '\n'
+        if miles > 0:
+            report += ', +%.1f miles' % miles
+            if days > 1:
+                report += ', %.1f miles/day' % (miles / days)
+        report += '\n'
     if 'EV SoC' in sensor:
         used = 0
         prev_soc = sensor['EV SoC'][0]
@@ -233,8 +236,10 @@ def build_report(sums, res, sensor, utility, producers, consumers):
     report += "\n"
     report += "Summary:\n"
     from_producers = total - sums['imported']
-    report += "- Total consumption: %.2f KWh - %.2f KWh (%.1f%%) from local production\n" % \
-        (total, from_producers, from_producers / total * 100)
+    report += '- Total consumption: %.2f KWh' % total
+    report += ' (%.2f KWh/day)' % (total / days) if days > 1 else ''
+    report += ', %.2f KWh (%.1f%%) local\n' % \
+        (from_producers, from_producers / total * 100)
     report +="- Imported: %.2f KWh (%.1f%%) - Exported: %.2f KWh\n" % \
         (sums['imported'], sums['imported']/total*100, sums['exported'])
     if sums['onpeak'] > 0.01:
@@ -244,16 +249,18 @@ def build_report(sums, res, sensor, utility, producers, consumers):
     cost = ((sums['offpeak'] * utility.rate["offpeak"]) +
             (sums['onpeak'] * utility.rate["onpeak"]) -
             (sums['exported'] * utility.rate["export"]))
-    report += "- Cost: %.2f USD\n" % cost
+    report += "- Cost: %.02f USD" % cost
+    report += ", %.02f USD/day\n" % (cost / days) if days > 1 else '\n'
     report += "\n"
 
     report += "Producer(s): %.1f%% used\n" % \
         (from_producers / sum([ res[p]['sum'] for p in producers]) * 100)
     for producer in producers:
-        report += "- %s: %.2f KWh (%d%%) - Max %.2f KW - %s\n" % \
+        report += "- %s: %.2f KWh (%d%%)%s, Max %.2f KW, %s\n" % \
             (producer.description, res[producer]['sum'], \
-             (res[producer]['sum'] / total) * 100, res[producer]['max'],
-             duration_string(res[producer]['time']))
+             (res[producer]['sum'] / total) * 100,
+             ', %.2f KWh/day' % (res[producer]['sum'] / days) if days > 1 else '',
+             res[producer]['max'], duration_string(res[producer]['time']))
     report += '\n'
 
     report += "Consumer(s):\n"
@@ -261,10 +268,11 @@ def build_report(sums, res, sensor, utility, producers, consumers):
                                 reverse=True)):
         if res[consumer]['sum'] < 0.01:
             continue
-        report += "- %s: %.2f KWh (%.1f%%) - Max %.2f KW - %s\n" % \
+        report += "- %s: %.2f KWh (%.1f%%)%s, Max %.2f KW, %s\n" % \
             (consumer.description, res[consumer]['sum'], \
-             (res[consumer]['sum'] / total) * 100, res[consumer]['max'],
-             duration_string(res[consumer]['time']))
+             (res[consumer]['sum'] / total) * 100,
+             ', %.2f KWh/day' % (res[consumer]['sum'] / days) if days > 1 else '',
+             res[consumer]['max'], duration_string(res[consumer]['time']))
     return report
 
 def main():
@@ -278,6 +286,7 @@ def main():
     consumers.append(Other(consumers))
 
     sums = { }
+    days = 1
     if args.prefix:
         pattern = re.compile("^%s.*$" % args.prefix)
         for filename in sorted(os.listdir(".")):
@@ -298,13 +307,14 @@ def main():
                     value += tmp[2][key]
                 first = min(tmp[3], first)
                 last = max(tmp[3], last)
+                days += 1
         title = "Report for %s - %s" % (first.strftime("%A %B %d %Y"),
-                                                last.strftime("%A %B %d %Y"))
+                                        last.strftime("%A %B %d %Y"))
     else:
         sums, res, sensor, date = compute_for(args.file, utility, producers, consumers)
         title = "Daily report for " + date.strftime("%A %B %d %Y")
 
-    report = build_report(sums, res, sensor, utility, producers, consumers)
+    report = build_report(sums, res, sensor, utility, producers, consumers, days)
     title = title.lstrip("0").replace(" 0", " ")
     if args.plot:
         plot(SensorLogReader(filename=args.file), title, consumers, producers)
