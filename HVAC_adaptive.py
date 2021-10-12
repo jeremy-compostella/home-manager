@@ -32,6 +32,7 @@ import sys
 import threading
 
 from datetime import datetime, timedelta
+from statistics import mean
 
 from consumer import MyEcobee, MyWallBox
 from sensor import MyOpenWeather, EmporiaProxy
@@ -64,13 +65,13 @@ class PowerStatistics(threading.Thread):
             net -= consumer.totalPower(usage)
         return net
 
-    def available_for(self, consumer, ignore = []):
+    def available_for(self, power, ignore = []):
         with self.lock:
             count = net = 0
             for usage in self.window[-2:]:
                 net += self.__net_for(usage, ignore)
                 count += 1
-        return -1 * net / (consumer.power[-1] * count)
+        return -1 * net / (power * count)
 
     def covered_by_production(self, consumer, ignore = []):
         with self.lock:
@@ -83,10 +84,10 @@ class PowerStatistics(threading.Thread):
 
 def load_database(filename):
     return list(csv.DictReader(open(filename, 'r'),
-                               fieldnames=['temperature', 'rate'],
+                               fieldnames=['temperature', 'rate', 'power'],
                                quoting=csv.QUOTE_NONNUMERIC))
 
-def estimate(database, weather, deviation):
+def find_in_database(database, weather):
     item = None
     prev= None
 
@@ -100,11 +101,19 @@ def estimate(database, weather, deviation):
             if item['temperature'] >= outdoor:
                 break
             prev = item
-    rate = item['rate']
+    item = item.copy()
     if item['temperature'] != outdoor and prev:
-        rate = (item['rate'] + prev['rate']) / 2
+        item['rate'] = mean([ item['rate'], prev['rate'] ])
+        item['power'] = mean([ item['power'], prev['power'] ])
+        item['temperature'] = outdoor
+    return item
 
+def estimate_time(database, weather, deviation):
+    rate=find_in_database(database, weather)['rate']
     return timedelta(minutes=deviation * rate)
+
+def estimate_power(database, weather):
+    return find_in_database(database, weather)['power']
 
 DEFAULT_SETTINGS = { 'min_run':15,
                      'min_coverage':.8,
@@ -148,13 +157,14 @@ def main():
             wait_for_next_minute()
             continue
 
-        if program.is_running:
+       if program.is_running:
             debug('HVAC is running and %.02f%% is covered by the production' %
                   (100 * stat.covered_by_production(hvac, ignore = [ charger ])))
             if program.has_run_for() >= timedelta(minutes=settings.min_run):
-                if charger.isConnected() and \
-                   not charger.isFullyCharged() and \
-                   not late_schedule:
+                if hvac.mode() == 'off' or \
+                   (charger.isConnected() and \
+                    not charger.isFullyCharged() and \
+                    not late_schedule):
                     debug('Stopping HVAC by 30 minutes')
                     program.start = datetime.now() + timedelta(minutes=30)
                 elif stat.covered_by_production(hvac, [ charger ]) < settings.min_coverage:
@@ -162,6 +172,9 @@ def main():
                           (settings.min_coverage * 100))
                     late_schedule = False
                     program.start = datetime.now() + timedelta(minutes=30)
+                else:
+                    debug('%s %s %s %s' % (hvac.mode(), charger.isConnected(),
+                                           charger.isFullyCharged(), late_schedule))
             wait_for_next_minute()
             continue
 
@@ -170,9 +183,10 @@ def main():
             wait_for_next_minute()
             continue
 
-        available_for_hvac = stat.available_for(hvac, [ charger ])
-        debug('Current production could cover %.02f%% of HVAC' %
-              (available_for_hvac * 100))
+        power = estimate_power(database, weather.read())
+        available_for_hvac = stat.available_for(power, [ charger ])
+        debug('Current production could cover %.02f%% of HVAC (%.02f KW)' %
+              (available_for_hvac * 100, power))
         # Early schedule: We want to handle two situations:
         # - If the car has left the garage, we want to get as soon and
         #   as close as possible to desired temperature to have
@@ -186,23 +200,26 @@ def main():
             available_for_hvac >= settings.unplugged_min_coverage) or \
            (charger.isFullyCharged() and \
             available_for_hvac >= settings.fully_charged_min_coverage):
-            debug('Starting early schedule')
-            program.start = datetime.now()
+            if hvac.mode() != 'off':
+                debug('Starting early schedule')
+                program.start = datetime.now()
             wait_for_next_minute()
             continue
 
         # Late schedule
         deviation = program.temperature_deviation()
         deviation += -1 * settings.temp_offset if deviation > 0 else settings.temp_offset
-        required = estimate(database, weather.read(), deviation)
+        required = estimate_time(database, weather.read(), deviation)
         debug("%s/%s to change the temperature_deviation by %.01fF" %
               (required, program.time_remaining(), deviation))
-        if program.time_remaining() <= required and \
+        if hvac.mode() != 'off' and \
+           program.time_remaining() <= required and \
            available_for_hvac >= settings.min_coverage:
             debug('Time to start HVAC to reach the desired temperature on time')
             program.start = datetime.now()
             late_schedule = True
-        elif program.starting_in_less_than(timedelta(minutes=3)):
+        elif program.starting_in_less_than(timedelta(minutes=3)) and \
+             program.start != program.stop:
             debug('Postponing by 30 minutes')
             program.start = datetime.now() + timedelta(minutes=33)
 

@@ -24,11 +24,12 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 # OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import pytz
-import time
-import sensor
 import math
+import pytz
 import requests
+import sensor
+import sys
+import time
 
 from datetime import datetime, timedelta
 from math import floor, ceil
@@ -86,7 +87,8 @@ class Consumer:
         self._schedule = []
         if 'schedule' in config:
             if config['schedule'] == 'auto':
-                return self.__detectSchedule()
+                self.__detectSchedule()
+                return
             for schedule in config['schedule'].split(","):
                 t = datetime.now()
                 start = [ int(x) for x in schedule.split(':') ]
@@ -177,14 +179,14 @@ class MyEcobeeProgram():
         thermostat=Thermostat(identifier=self.ecobee.identifier,
                               program=program)
         self.ecobee.update_thermostats(sel, thermostat=thermostat)
-        self._start = start.replace(minute=(floor(start.minute / 30) * 30))
-        self._stop = stop.replace(minute=(floor(stop.minute / 30) * 30))
+        self._start = start
+        self._stop = stop
 
     def restore(self):
         self.__reschedule(self._saved_start, self._saved_stop)
         self._alterated = False
 
-    def load(self):
+    def read(self):
         program = self.__get_program()
         climate = [ c for c in program.climates if c.name == self.name ][0]
         today = program.schedule[datetime.today().weekday()]
@@ -193,20 +195,27 @@ class MyEcobeeProgram():
         climate_sensors=[ x.name for x in climate.sensors ]
         for p in today:
             if p != climate.climate_ref and start:
-                self._start = self._saved_start = start
-                self._stop = self._saved_stop = minutes_to_datetime(minutes)
-                self.sensors = climate_sensors
-                self.target = float(climate.cool_temp) / 10
-                if self._start <= datetime.now() < self._stop:
-                    self._started_at = self._start
-                else:
-                    self._started_at = None
-                self._alterated = False
+                return { 'start':start,
+                         'stop':minutes_to_datetime(minutes),
+                         'sensors':climate_sensors,
+                         'target':float(climate.cool_temp) / 10 }
                 return
             if not start and p == climate.climate_ref:
                 start = minutes_to_datetime(minutes)
             minutes += 30
         raise NameError("Could not find '%s' program" % self.name)
+
+    def load(self):
+        settings = self.read()
+        self._start = self._saved_start = settings['start']
+        self._stop = self._saved_stop = settings['stop']
+        self.sensors = settings['sensors']
+        self.target = settings['target']
+        if self._start <= datetime.now() < self._stop:
+            self._started_at = self._start
+        else:
+            self._started_at = None
+        self._alterated = False
 
     def __init__(self, ecobee, name):
         self.name = name
@@ -220,10 +229,20 @@ class MyEcobeeProgram():
 
     @start.setter
     def start(self, value):
+        value = value.replace(minute=(floor(value.minute / 30) * 30),
+                              second=0, microsecond=0)
         if value > self._stop:
             raise ValueError('start must be before stop')
-        if value != self._start:
+        for _ in range(3):
             self.__reschedule(value, self._stop)
+            try:
+                settings=self.read()
+            except NameError as e:
+                if value == self._stop:
+                    break
+            if settings['start'] == value:
+                break
+            debug('New configuration not applied')
 
     @property
     def stop(self):
@@ -231,6 +250,12 @@ class MyEcobeeProgram():
 
     @stop.setter
     def stop(self, value):
+        value = value.replace(second=0, microsecond=0)
+        minutes=ceil(value.minute / 30) * 30
+        if minutes == 60:
+            value = value.replace(hour=value.hour + 1, minute=0)
+        else:
+            value = value.replace(minute=minutes)
         if value < self._start:
             raise ValueError('stop must be after start')
         if value != self._stop:
@@ -310,9 +335,12 @@ class MyEcobee(Sensor, Consumer):
                 return fun()
             except EcobeeApiException as e:
                 if e.status_code == 14:
+                    debug("Ecobee: Failed due to expired tokens")
                     self.__refreshTokens()
+                else:
+                    debug("Ecobee: e.status_code=%d" % e.status_code)
             except:
-                pass
+                debug("Ecobee: unexpected exception")
         return None
 
     def request_thermostats(self, *args, **kwargs):
@@ -342,6 +370,14 @@ class MyEcobee(Sensor, Consumer):
 
     def read(self, cache = True):
         return self.temperatures(cache)
+
+    def mode(self):
+        sel = Selection(selection_type=SelectionType.REGISTERED.value,
+                        selection_match='', include_settings=True)
+        thermostats = self.request_thermostats(sel)
+        if thermostats == 'unknown' or thermostats == None:
+            return None
+        return thermostats.thermostat_list[0].settings.hvac_mode
 
     def isAboutToStart(self):
         if not self.ecobee:

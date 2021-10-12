@@ -28,17 +28,11 @@
 
 import csv
 import os
-import sys
 import re
 
-from datetime import datetime
 from math import floor
-from sensor_logger import SensorLogWriter
 from statistics import median
 from tools import SensorLogReader
-
-def temp2str(temp):
-    return "%.1f" % temp
 
 def rate(entry):
     return entry['Minutes'] / (entry['Indoor Start'] - entry['Indoor Stop'])
@@ -47,7 +41,7 @@ exclude = [ 'sensor.csv.20210702',
             'sensor.csv.20210703',
             'sensor.csv.20210612' ]
 
-def main(argv):
+def main():
     pattern = re.compile("^sensor\.csv\.[0-9]+$")
     database = []
     for filename in os.listdir("."):
@@ -56,18 +50,22 @@ def main(argv):
             reader = SensorLogReader(filename=filename)
             row = {}
             start = None
+            power = []
             for current in iter(reader):
                 if current['time'].hour < 12 or current['time'].hour > 15:
                     continue
 
                 if start:
-                    if current['A/C'] < .5:
+                    power.append(current['air handler'] + current['A/C'])
+                    if current['A/C'] < .5 or \
+                       ((current['time'] - start).seconds / 60) >= 120:
                         row['Minutes'] = (current['time'] - start).seconds / 60
-                        if row['Minutes'] <= 90:
+                        if row['Minutes'] <= 60:
                             start = None
                             continue
                         row['Outdoor Stop'] = current['outdoor temp']
                         row['Indoor Stop'] = (current['Living Room'] + current['Home']) / 2
+                        row['Power'] = median(power)
                         break
                 elif current['A/C'] > .5:
                     start = current['time']
@@ -76,15 +74,16 @@ def main(argv):
             if start and 'Minutes' in row:
                 database.append(row)
 
-    f = open('hvac_database.csv', 'w', newline='')
-    writer = csv.writer(f)
-    database.sort(key=lambda x: x['Outdoor Start'])
-    while len(database) > 0:
-        current = database[0]
-        temp = floor(current['Outdoor Start'])
-        rates = [ rate(x) for x in database if floor(x['Outdoor Start']) == temp ]
-        writer.writerow([ temp, median(rates) ])
-        database = [ x for x in database if floor(x['Outdoor Start']) != temp]
+    with open('hvac_database.csv', 'w', newline='') as file:
+        writer = csv.writer(file)
+        database.sort(key=lambda x: x['Outdoor Start'])
+        while len(database) > 0:
+            current = database[0]
+            temp = floor(current['Outdoor Start'])
+            rates = [ rate(x) for x in database if floor(x['Outdoor Start']) == temp ]
+            powers = [ x['Power'] for x in database if floor(x['Outdoor Start']) == temp ]
+            writer.writerow([ temp, median(rates), median(powers) ])
+            database = [ x for x in database if floor(x['Outdoor Start']) != temp]
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    main()
