@@ -1,0 +1,16 @@
+[Unit]
+Description=Car Sensor Service
+After=nameserver.service watchdog.service bluetooth.service
+Wants=nameserver.service watchdog.service bluetooth.service
+
+[Service]
+Type=simple
+User=pi
+Group=dialout
+ExecStart=python3 /home/pi/src/car_sensor.py
+TimeoutStartSec=0
+Restart=always
+RestartSec=10s
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,16 @@
+[Unit]
+Description=Monitor Service
+After=nameserver.service
+Wants=nameserver.service
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+ExecStart=python3 /home/pi/src/monitor.py
+TimeoutStartSec=0
+Restart=always
+RestartSec=5s
+
+[Install]
+WantedBy=default.target

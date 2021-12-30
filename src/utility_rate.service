@@ -1,0 +1,16 @@
+[Unit]
+Description=Utility Rate Service
+After=nameserver.service watchdog.service
+Wants=nameserver.service watchdog.service
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+ExecStart=python3 /home/pi/src/utility_rate.py
+TimeoutStartSec=0
+Restart=always
+RestartSec=10s
+
+[Install]
+WantedBy=default.target

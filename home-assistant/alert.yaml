@@ -1,0 +1,91 @@
+car_charger_service_died:
+  name: car_charger service died
+  done_message: car_charger service is running
+  entity_id: sensor.monitor_process_car_charger
+  state: 'on'
+  notifiers:
+    - notify
+  can_acknowledge: true
+  repeat: 5
+car_sensor_service_died:
+  name: car_sensor service died
+  done_message: car_sensor service is running
+  entity_id: sensor.monitor_process_car_sensor
+  state: 'on'
+  notifiers:
+    - notify
+  can_acknowledge: true
+  repeat: 5
+hvac_service_died:
+  name: hvac service died
+  done_message: hvac service is running
+  entity_id: sensor.monitor_process_hvac
+  state: 'on'
+  notifiers:
+    - notify
+  can_acknowledge: true
+  repeat: 5
+power_sensor_service_died:
+  name: power_sensor service died
+  done_message: power_sensor service is running
+  entity_id: sensor.monitor_process_power_sensor
+  state: 'on'
+  notifiers:
+    - notify
+  can_acknowledge: true
+  repeat: 5
+power_simulator_service_died:
+  name: power_simulator service died
+  done_message: power_simulator service is running
+  entity_id: sensor.monitor_process_power_simulator
+  state: 'on'
+  notifiers:
+    - notify
+  can_acknowledge: true
+  repeat: 5
+scheduler_service_died:
+  name: scheduler service died
+  done_message: scheduler service is running
+  entity_id: sensor.monitor_process_scheduler
+  state: 'on'
+  notifiers:
+    - notify
+  can_acknowledge: true
+  repeat: 5
+utility_rate_service_died:
+  name: utility_rate service died
+  done_message: utility_rate service is running
+  entity_id: sensor.monitor_process_utility_rate
+  state: 'on'
+  notifiers:
+    - notify
+  can_acknowledge: true
+  repeat: 5
+water_heater_service_died:
+  name: water_heater service died
+  done_message: water_heater service is running
+  entity_id: sensor.monitor_process_water_heater
+  state: 'on'
+  notifiers:
+    - notify
+  can_acknowledge: true
+  repeat: 5
+weather_service_died:
+  name: weather service died
+  done_message: weather service is running
+  entity_id: sensor.monitor_process_weather
+  state: 'on'
+  notifiers:
+    - notify
+  can_acknowledge: true
+  repeat: 5
+inaccessible_ecobee_service:
+  name: Could not communicate with the Ecobee service
+  done_message: Ecobee server communication restored
+  entity_id: sensor.monitor_ecobee_service
+  state: 'on'
+  notifiers:
+    - notify
+  can_acknowledge: true
+  skip_first: true
+  repeat: 5

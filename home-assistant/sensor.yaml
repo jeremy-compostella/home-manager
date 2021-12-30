@@ -1,0 +1,64 @@
+- platform: home_manager
+- platform: template
+  sensors:
+    pool_diagram:
+      entity_id: sensor.pool_diagram
+      unique_id: diagram.pool_minute
+      unit_of_measurement: kW
+      value_template: "{{ float(states('sensor.pool_minute')) }}"
+    water_heater_diagram:
+      entity_id: sensor.water_heater_diagram
+      unique_id: diagram.water_heater_minute
+      unit_of_measurement: kW
+      value_template: "{{ float(states('sensor.pool_minute')) + float(states('sensor.water_heater_minute')) }}"
+    a_c_diagram:
+      entity_id: sensor.a_c_diagram
+      unique_id: diagram.a_c_minute
+      unit_of_measurement: kW
+      value_template: "{{ float(states('sensor.pool_minute')) + float(states('sensor.water_heater_minute')) + float(states('sensor.a_c_minute')) }}"
+    air_handler_diagram:
+      entity_id: sensor.air_handler_diagram
+      unique_id: diagram.air_handler_minute
+      unit_of_measurement: kW
+      value_template: "{{ float(states('sensor.pool_minute')) + float(states('sensor.water_heater_minute')) + float(states('sensor.a_c_minute')) + float(states('sensor.air_handler_minute')) }}"
+    range_diagram:
+      entity_id: sensor.range_diagram
+      unique_id: diagram.range_minute
+      unit_of_measurement: kW
+      value_template: "{{ float(states('sensor.pool_minute')) + float(states('sensor.water_heater_minute')) + float(states('sensor.a_c_minute')) + float(states('sensor.air_handler_minute')) + float(states('sensor.range_minute')) }}"
+    ev_diagram:
+      entity_id: sensor.ev_diagram
+      unique_id: diagram.ev_minute
+      unit_of_measurement: kW
+      value_template: "{{ float(states('sensor.pool_minute')) + float(states('sensor.water_heater_minute')) + float(states('sensor.a_c_minute')) + float(states('sensor.air_handler_minute')) + float(states('sensor.range_minute')) + float(states('sensor.ev_minute')) }}"
+    dryer_diagram:
+      entity_id: sensor.dryer_diagram
+      unique_id: diagram.dryer_minute
+      unit_of_measurement: kW
+      value_template: "{{ float(states('sensor.pool_minute')) + float(states('sensor.water_heater_minute')) + float(states('sensor.a_c_minute')) + float(states('sensor.air_handler_minute')) + float(states('sensor.range_minute')) + float(states('sensor.ev_minute')) + float(states('sensor.dryer_minute')) }}"
+    other_diagram:
+      entity_id: sensor.other_diagram
+      unique_id: diagram.other_minute
+      unit_of_measurement: kW
+      value_template: "{{ float(states('sensor.pool_minute')) + float(states('sensor.water_heater_minute')) + float(states('sensor.a_c_minute')) + float(states('sensor.air_handler_minute')) + float(states('sensor.range_minute')) + float(states('sensor.ev_minute')) + float(states('sensor.dryer_minute')) + float(states('sensor.other_minute')) }}"
+    rounded_daily_mileage:
+      entity_id: sensor.rounded_daily_mileage
+      value_template: "{{states('sensor.car_mileage') | round(1) }}"
+      unit_of_measurement: "mi"
+    rounded_mileage:
+      entity_id: sensor.rounded_mileage
+      value_template: "{{states('sensor.mileage') | round }}"
+      unit_of_measurement: "mi"
+    rounded_state_of_charge:
+      entity_id: sensor.rounded_state_of_charge
+      value_template: "{{states('sensor.state_of_charge') | round }}"
+      unit_of_measurement: "%"
+    rounded_available:
+      entity_id: sensor.rounded_available
+      value_template: "{{states('sensor.available') | round }}"
+      unit_of_measurement: "%"
+    rounded_home_temperature:
+      entity_id: sensor.temperature
+      unique_id: sensor.rounded_home_temperature
+      value_template: '{{states("sensor.temperature") | round(1) }}'
+      unit_of_measurement: "°F"

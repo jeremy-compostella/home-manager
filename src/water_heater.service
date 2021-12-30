@@ -1,0 +1,16 @@
+[Unit]
+Description=Water Heater Service
+After=nameserver.service watchdog.service scheduler.service
+Wants=nameserver.service watchdog.service scheduler.service
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+ExecStart=python3 /home/pi/src/water_heater.py
+TimeoutStartSec=0
+Restart=always
+RestartSec=10s
+
+[Install]
+WantedBy=default.target

@@ -1,1 +1,2 @@
 *.ini filter=gitignore
+*.conf filter=gitignore

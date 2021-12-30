@@ -1,0 +1,16 @@
+[Unit]
+Description=Car Charger Service
+After=nameserver.service watchdog.service scheduler.service power_sensor.service power_simulator.service car_sensor.service
+Wants=nameserver.service watchdog.service scheduler.service power_sensor.service power_simulator.service car_sensor.service
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+ExecStart=python3 /home/pi/src/car_charger.py
+TimeoutStartSec=0
+Restart=always
+RestartSec=10s
+
+[Install]
+WantedBy=default.target

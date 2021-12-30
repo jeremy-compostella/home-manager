@@ -1,0 +1,16 @@
+[Unit]
+Description=Weather (Forecast) Service
+After=nameserver.service watchdog.service network-online.target
+Wants=nameserver.service watchdog.service network-online.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+ExecStart=python3 /home/pi/src/weather.py
+TimeoutStartSec=0
+Restart=always
+RestartSec=10s
+
+[Install]
+WantedBy=default.target
