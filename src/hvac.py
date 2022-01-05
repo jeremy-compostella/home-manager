@@ -513,12 +513,10 @@ class HVACParam(threading.Thread):
         model = HomeModel()
         try:
             minutes = int((goal_time - self.target_time).total_seconds() / 60)
-            debug('J2M: is about to loop for %s' % range(minutes))
             for minute in range(minutes):
                 time = self.target_time + timedelta(minutes=minute)
                 temp_at = self.weather.temperature_at(time)
                 target_temp -= model.degree_per_minute(temp_at)
-            debug('J2M: target_temp is %s' % target_temp)
             with self._lock:
                 if target_temp > self.settings.comfort_zone[1]:
                     self._data['target_temp'] = self.settings.comfort_zone[1]
@@ -552,13 +550,11 @@ class HVACParam(threading.Thread):
                 log_exception('Temperature update failed', *sys.exc_info())
             with self._lock:
                 self._data['outdoor_temp'] = temperature
-            debug('J2M: debug 6')
             try:
                 self._update_target_temperature()
-            except Exception:
+            except (RuntimeError, Pyro5.errors.PyroError):
                 log_exception('Uncaught exception in run()',  *sys.exc_info())
                 debug(''.join(Pyro5.errors.get_pyro_traceback()))
-            debug('J2M: debug 7')
             sleep(60)
 
 def my_excepthook(etype, value=None, traceback=None):
