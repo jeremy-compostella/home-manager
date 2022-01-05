@@ -29,10 +29,12 @@
 '''Weather Sensor and a weather forecast Service implementation.'''
 
 import os
+import random
 import sys
 from bisect import bisect_left
 from datetime import datetime, timedelta
 from select import select
+from string import ascii_lowercase
 from time import sleep
 
 import pyowm
@@ -110,8 +112,12 @@ class WeatherForecastService:
 
     @staticmethod
     def _get(url: str) -> dict:
+        # The server often return stale data for identical request. The
+        # following generates a random string to make each request different.
+        flags = ''.join(random.choice(ascii_lowercase) for i in range(10))
+        headers = {'accept': 'application/geo+json', 'Feature-Flags': flags}
         for _ in range(3):
-            response = requests.get(url, timeout=3)
+            response = requests.get(url, headers=headers, timeout=3)
             if response.ok:
                 return response.json()
             sleep(1)
