@@ -44,6 +44,7 @@ from cachetools import TTLCache
 from dateutil import parser, tz
 from geopy.geocoders import Nominatim
 
+from monitor import MonitorProxy
 from sensor import Sensor
 from tools import NameServer, debug, init, log_exception, miles
 from watchdog import WatchdogProxy
@@ -105,10 +106,12 @@ class WeatherForecastService:
               'S': 180.0, 'SSW': 202.5, 'SW': 225.0, 'WSW': 247.5,
               'W': 270.0, 'WNW': 292.5, 'NW': 315.0, 'NNW': 337.5}
 
-    def __init__(self, latitude, longitude):
+    def __init__(self, latitude, longitude, monitor):
         self.latitude = latitude
         self.longitude = longitude
-        self.forecast = TTLCache(2, timedelta(hours=1), datetime.now)
+        self.monitor = monitor
+        self.cache = {}
+        self.last_attempt = datetime.min
 
     @staticmethod
     def _get(url: str) -> dict:
@@ -120,19 +123,31 @@ class WeatherForecastService:
             response = requests.get(url, headers=headers, timeout=3)
             if response.ok:
                 return response.json()
-            sleep(1)
+            sleep(.2)
         raise RuntimeError('Could not access %s' % url)
 
     def _load_forecast_data(self):
         debug('Loading Forecast data')
+        self.last_attempt = datetime.now()
         data = self._get(self.API + '/points/%.2f,%.2f' %
-                          (self.latitude, self.longitude))
-        self.forecast['timezone'] = tz.gettz(data['properties']['timeZone'])
-        data = self._get(data['properties']['forecastHourly'])
-        self.forecast['data'] = data['properties']['periods']
+                         (self.latitude, self.longitude))
+        try:
+            self.cache['timezone'] = tz.gettz(data['properties']['timeZone'])
+            forecast_url = data['properties']['forecastHourly'] + '?units=us'
+            periods = self._get(forecast_url)['properties']['periods']
+        except KeyError as err:
+            raise RuntimeError from err
+        now = datetime.now().astimezone(self.cache['timezone'])
+        valid_data = now <= (self._str2time(periods[0]['startTime'])
+                             + timedelta(hours=2))
+        if valid_data:
+            self.cache['forecast'] = periods
+        else:
+            debug('%s forecast period is outdated' % periods[0]['startTime'])
+        self.monitor.track('weather forecast data', valid_data)
 
     def _str2time(self, string: str):
-        return parser.parse(string).astimezone(self.forecast['timezone'])
+        return parser.parse(string).astimezone(self.cache['timezone'])
 
     class _Periods:
         def __init__(self, periods, parent):
@@ -149,12 +164,15 @@ class WeatherForecastService:
                 'wind_degree': self.DEGREE[period['windDirection']]}
 
     def _forecast_and_timezone(self):
-        forecast = self.forecast.get('data', None)
-        timezone = self.forecast.get('timezone', None)
-        if forecast is None or forecast is None:
+        timezone = self.cache.get('timezone', None)
+        forecast = self.cache.get('forecast', None)
+        if timezone is None or forecast is None \
+           or datetime.now() > self.last_attempt + timedelta(hours=1):
             self._load_forecast_data()
-            forecast = self.forecast['data']
-            timezone = self.forecast['timezone']
+            timezone = self.cache.get('timezone', None)
+            forecast = self.cache.get('forecast', None)
+        if timezone is None or forecast is None:
+            raise RuntimeError('Could not get forecast data')
         return forecast, timezone
 
     @Pyro5.api.expose
@@ -273,7 +291,8 @@ def main():
     daemon = Pyro5.api.Daemon()
 
     nameserver = NameServer()
-    service = WeatherForecastService(location.latitude, location.longitude)
+    service = WeatherForecastService(location.latitude, location.longitude,
+                                     MonitorProxy())
     service_uri = daemon.register(service)
     nameserver.register_service(module_name, service_uri)
     sensor = WeatherSensor(config['OpenWeather']['key'],
