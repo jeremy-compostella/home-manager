@@ -497,7 +497,8 @@ class HVACParam(threading.Thread):
                 if hvac_power >= power:
                     with self._lock:
                         self._data['target_time'] = target_time
-                        debug('target_time updated to %s' % target_time)
+                        debug('Target time updated to %s' % target_time)
+                        debug('Power at target time is %s' % hvac_power)
                     break
                 debug('new power is %s' % hvac_power)
                 power = hvac_power
