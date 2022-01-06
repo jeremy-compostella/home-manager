@@ -286,8 +286,6 @@ class WaterHeater(Task, Sensor):
 
         '''
         debug('meet_running_criteria(%.3f, %.3f)' % (ratio, power))
-        if self.has_reached_target or not self.is_runnable():
-            return False
         if (30 <= self.has_been_running_for().seconds <= 90 and power == 0) \
            or (self.has_been_running_for().seconds > 90 \
                and power <= 1 / 2 * self.power):
