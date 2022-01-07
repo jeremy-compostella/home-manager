@@ -210,7 +210,7 @@ class PowerSimulator(Sensor):
             power = self.power
         record['solar'] = -power
         record['net'] = self.settings.base_power - power
-        for task in [task for task in NameServer().tasks() \
+        for task in [task for _, task in NameServer().tasks() \
                      if task.is_running()]:
             keys = task.keys
             usage = task.power / len(keys)

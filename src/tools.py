@@ -136,9 +136,10 @@ class NameServer:
 
     def generator(self, qualifier):
         pattern = re.compile('%s.%s\\..*' % (self.base_uri, qualifier))
+        preffix_len = (len(self.base_uri) + len(qualifier) + 2)
         for name, uri in self.__call('list').items():
             if pattern.search(name):
-                yield Pyro5.api.Proxy(uri)
+                yield name[preffix_len:], Pyro5.api.Proxy(uri)
 
     def register(self, qualifier, name, uri):
         if qualifier not in self.QUALIFIERS:
