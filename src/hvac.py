@@ -58,7 +58,7 @@ from tools import NameServer, Settings, debug, get_storage, init, log_exception
 from watchdog import WatchdogProxy
 from weather import WeatherProxy
 
-DEFAULT_SETTINGS = {'min_run_time': 60 * 10,
+DEFAULT_SETTINGS = {'min_run_time': 60 * 7,
                     'min_pause': 60 * 5,
                     'temperature_offset': 2,
                     'goal_time': dtime(hour=22, minute=30),
