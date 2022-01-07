@@ -110,7 +110,7 @@ class WaterHeater(Task, Sensor):
         self.state = WaterHeaterState(settings)
         self.target_time = datetime.min
         self.started_at = None
-        self._keep_off_until = datetime.min
+        self._not_runnable_till = datetime.min
         self.cache = TTLCache(3, timedelta(seconds=30), datetime.now)
         self.adjust_priority()
 
@@ -146,7 +146,13 @@ class WaterHeater(Task, Sensor):
 
     def _update_state(self):
         state = self._getattr('water')
-        force = datetime.now() < self._keep_off_until
+        force = datetime.now() < self._not_runnable_till
+        # Water tank level has decreased, make the task runnable
+        if self.state.tank_level is not None \
+           and self.state.tank_level > state['available']:
+            debug('Making runnable %s %s' \
+                  % (self.state.tank_level, state['available']))
+            self._not_runnable_till = datetime.min
         self.state.update(state['temperature'], state['available'],
                           force=force)
 
@@ -246,7 +252,7 @@ class WaterHeater(Task, Sensor):
     @Pyro5.api.expose
     def is_runnable(self):
         '''True if the Task can be schedule.'''
-        return datetime.now() > self._keep_off_until \
+        return datetime.now() > self._not_runnable_till \
             and not self.has_reached_target
 
     @Pyro5.api.expose
@@ -272,28 +278,38 @@ class WaterHeater(Task, Sensor):
 
     @Pyro5.api.expose
     def meet_running_criteria(self, ratio, power=0):
-        '''Return True if the water heater can be turned on.
+        '''True if the water heater can be turned on or should keep running.
 
-        If the task has been running for more than 90 seconds and is not using
-        at least three quarter of its usual power it makes the task unrunnable
-        for no_power_delay seconds.
+        The water heater may not use any power while it is filling the tank and
+        may stop using power or not starting using any power when the tank is
+        full tank. This function attempt to detect the best it can when the
+        water heater should be started or stopped.
 
-        The sensors not being very reliable, sometimes the task is eligible to
-        run while actually the water does not heating. For this reason, if the
-        task has been running for around one minute and has not been using any
-        power at all, this function makes the task unrunnable for
-        no_power_delay seconds.
+        - If the water heater tank is full we expect that if started it would
+          use power right away. If it does not we make the task not runnable
+          for 'no_power_delay'.
+
+        - If the water heater has been running for a little while and suddenly
+          stop using power, we consider it the tank is full, the water fully
+          heated and make the task not runnable for four times 'no_power_delay'.
 
         '''
         debug('meet_running_criteria(%.3f, %.3f)' % (ratio, power))
-        if (30 <= self.has_been_running_for().seconds <= 90 and power == 0) \
-           or (self.has_been_running_for().seconds > 90 \
-               and power <= 1 / 2 * self.power):
-            delay = timedelta(seconds=self.settings.no_power_delay)
-            debug('Not using any enough power, make unrunnable for %s' % delay)
-            self.state.update(self.temperature, 100, force=True)
-            self._keep_off_until = datetime.now() + delay
-            return False
+        duration = self.has_been_running_for()
+        if duration > timedelta():
+            if self.available == 100 or duration >= timedelta(minutes=4):
+                min_time = timedelta(seconds=30)
+                min_power = 1 / 2 * self.power
+            else:
+                min_time = timedelta(seconds=90)
+                min_power = 0
+            if duration > min_time and power <= min_power:
+                delay = timedelta(seconds=self.settings.no_power_delay)
+                if duration > timedelta(minutes=3):
+                    delay *= 4
+                debug('Not using any enough power, make unrunnable for %s' % delay)
+                self._not_runnable_till = datetime.now() + delay
+                return False
         # Accept to operate with any ratio if we are too close to the target
         # time and the priority level is URGENT.
         debug('target_time=%s' % self.target_time)

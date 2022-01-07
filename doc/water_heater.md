@@ -186,17 +186,20 @@ Return True if it has been running for MIN_RUN_TIME.
 def meet_running_criteria(ratio, power=0)
 ```
 
-Return True if the water heater can be turned on.
+True if the water heater can be turned on or should keep running.
 
-If the task has been running for more than 90 seconds and is not using
-at least three quarter of its usual power it makes the task unrunnable
-for no_power_delay seconds.
+The water heater may not use any power while it is filling the tank and
+may stop using power or not starting using any power when the tank is
+full tank. This function attempt to detect the best it can when the
+water heater should be started or stopped.
 
-The sensors not being very reliable, sometimes the task is eligible to
-run while actually the water does not heating. For this reason, if the
-task has been running for around one minute and has not been using any
-power at all, this function makes the task unrunnable for
-no_power_delay seconds.
+- If the water heater tank is full we expect that if started it would
+  use power right away. If it does not we make the task not runnable
+  for 'no_power_delay'.
+
+- If the water heater has been running for a little while and suddenly
+  stop using power, we consider it the tank is full, the water fully
+  heated and make the task not runnable for four times 'no_power_delay'.
 
 <a id="water_heater.WaterHeater.desc"></a>
 
