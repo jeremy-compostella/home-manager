@@ -33,7 +33,7 @@ device.
 
 import os
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from select import select
 from tempfile import mkdtemp
@@ -42,6 +42,7 @@ from time import sleep
 import botocore
 import Pyro5.api
 import requests
+from dateutil import parser
 from pyemvue import PyEmVue
 from pyemvue.device import VueDevice
 from pyemvue.enums import Scale, Unit
@@ -119,12 +120,12 @@ class PowerSensor(Sensor):
         self.settings = settings
         self.cache = {scale:CacheEntry(scale) for scale in RecordScale}
 
-    def __get_device_list_usage(self, scale: Scale) -> dict:
+    def __get_device_list_usage(self, scale: Scale, time: datetime) -> dict:
         for attempt in ['first', 'final']:
             for inner_attempt in ['first', 'second', 'final']:
                 try:
                     gids = [self.device.device_gid]
-                    return self.vue.get_device_list_usage(gids, None,
+                    return self.vue.get_device_list_usage(gids, instant=time,
                                                           scale=scale.value,
                                                           unit=Unit.KWH.value)
                 except requests.exceptions.RequestException:
@@ -147,10 +148,10 @@ class PowerSensor(Sensor):
                     result.update(self.__parse(channel.nested_devices))
         return result
 
-    def __load(self, scale):
+    def __load(self, scale, time):
         usage = {}
         for attempt in ['first', 'final']:
-            usage = self.__parse(self.__get_device_list_usage(scale))
+            usage = self.__parse(self.__get_device_list_usage(scale, time))
             if len(self.device_map) <= len(usage):
                 return usage
             if attempt != 'final':
@@ -168,21 +169,28 @@ class PowerSensor(Sensor):
             device_map.insert(1, 'from grid')
         return {k:v * factor for k, (_, v) in zip(device_map, usage.items())}
 
+    def __read_params(self, kwargs: dict) -> tuple:
+        scale = RecordScale(kwargs.get('scale', RecordScale.MINUTE))
+        if scale not in self.cache.keys():
+            raise ValueError('%s is not a supported scale' % scale)
+        time = kwargs.get('time', None)
+        if time is not None:
+            time = parser.parse(time).astimezone(timezone.utc)
+        return scale, time
+
     @Pyro5.api.expose
     def read(self, **kwargs: dict) -> dict:
         '''Return an instant record from the sensor.
 
-        The optional SCALE keyword argument, limited to
-        RecordScale.SECOND, RecordScale.MINUTE,
-        RecordScale.HOUR and RecordScale.DAY, indicates which time
-        unit resolution can be supplied to read with a different scale
-        order. By default, the resolution is RecordScale.MINUTE.
+        The optional SCALE RecordScale parameter indicates which time unit
+        resolution should be used. RecordScale.MINUTE is used by default.
+
+        The optional TIME parameter indicates the instant the power record
+        should be from.
 
         '''
-        scale = RecordScale(kwargs.get('scale', RecordScale.MINUTE))
-        if scale not in self.cache.keys():
-            raise ValueError('%s is not a supported scale' % scale)
-        if not self.cache[scale].has_expired():
+        scale, time = self.__read_params(kwargs)
+        if time is None and not self.cache[scale].has_expired():
             if scale == RecordScale.DAY:
                 debug('from cache: %s' % self.cache[scale].value)
             return self.cache[scale].value
@@ -201,7 +209,7 @@ class PowerSensor(Sensor):
                           % (scale, delay))
                     sleep(delay)
             try:
-                raw = self.__load(scale)
+                raw = self.__load(scale, time)
             except (requests.exceptions.RequestException,
                     botocore.exceptions.BotoCoreError) as err:
                 msg = '%s: Failed to load sensor data from the server' % scale
@@ -224,7 +232,8 @@ class PowerSensor(Sensor):
                     else:
                         debug("Let's retry")
                     continue
-            self.cache[scale].value = usage
+            if time is None:
+                self.cache[scale].value = usage
             if self.cache[scale].identical > self.settings.max_identical:
                 raise RuntimeError('Too many identical record in a row for %s'
                                    % scale)

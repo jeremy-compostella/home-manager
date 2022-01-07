@@ -71,9 +71,9 @@ def read(**kwargs: dict) -> dict
 
 Return an instant record from the sensor.
 
-The optional SCALE keyword argument, limited to
-RecordScale.SECOND, RecordScale.MINUTE,
-RecordScale.HOUR and RecordScale.DAY, indicates which time
-unit resolution can be supplied to read with a different scale
-order. By default, the resolution is RecordScale.MINUTE.
+The optional SCALE RecordScale parameter indicates which time unit
+resolution should be used. RecordScale.MINUTE is used by default.
+
+The optional TIME parameter indicates the instant the power record
+should be from.
 
