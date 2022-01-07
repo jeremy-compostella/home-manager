@@ -300,7 +300,7 @@ class HVACTask(Task, Sensor):
             return True
         if self.is_running():
             mode = self.hvac_mode
-            if self._deviation() * mode.value > 0:
+            if self._deviation() * mode.value > 0.5:
                 debug('Target has been reached')
                 return False
             if self._has_been_running_for() > self.min_run_time:
