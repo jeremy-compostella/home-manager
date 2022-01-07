@@ -71,22 +71,25 @@ class MonitorProxy:
         self.max_attempt = max_attempt
 
     def track(self, *args):
-        for _ in range(self.max_attempt):
+        for attempt in range(self.max_attempt):
             if not self._monitor:
                 try:
                     self._monitor = NameServer().locate_service(MODULE_NAME)
                 except Pyro5.errors.NamingError:
-                    log_exception('Failed to locate the monitor',
-                                  *sys.exc_info())
+                    if attempt == self.max_attempt - 1:
+                        log_exception('Failed to locate the monitor',
+                                      *sys.exc_info())
                 except Pyro5.errors.CommunicationError:
-                    log_exception('Cannot communicate with the nameserver',
-                                  *sys.exc_info())
+                    if attempt == self.max_attempt - 1:
+                        log_exception('Cannot communicate with the nameserver',
+                                      *sys.exc_info())
             if self._monitor:
                 try:
                     self._monitor.track(*args)
                 except Pyro5.errors.PyroError:
-                    log_exception('Communication failed with the monitor',
-                                  *sys.exc_info())
+                    if attempt == self.max_attempt - 1:
+                        log_exception('Communication failed with the monitor',
+                                      *sys.exc_info())
                     self._monitor = None
 
 def main():

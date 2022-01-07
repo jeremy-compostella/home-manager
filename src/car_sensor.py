@@ -141,23 +141,28 @@ class CarSensorProxy(Sensor):
         self.sensor = None
 
     def __attemp(self, method, **kwargs):
-        for _ in range(self.max_attempt):
+        for attempt in range(self.max_attempt):
+            last_attempt = attempt == self.max_attempt - 1
             if not self.sensor:
                 try:
                     self.sensor = NameServer().locate_sensor('car')
                 except Pyro5.errors.NamingError:
-                    log_exception('Failed to locate car_sensor',
-                                  *sys.exc_info())
-                except Pyro5.errors.CommunicationError:
-                    log_exception('Cannot communicate with car_sensor',
-                                  *sys.exc_info())
+                    if last_attempt:
+                        log_exception('Failed to locate car_sensor',
+                                      *sys.exc_info())
+                except Pyro5.errors.PyroError:
+                    if last_attempt:
+                        log_exception('Cannot communicate with car_sensor',
+                                      *sys.exc_info())
             if self.sensor:
                 try:
                     return getattr(self.sensor, method)(**kwargs)
-                except Pyro5.errors.PyroError:
-                    log_exception('Communication failed with car_sensor',
-                                  *sys.exc_info())
-                    debug("".join(Pyro5.errors.get_pyro_traceback()))
+                except Pyro5.errors.PyroError as err:
+                    if last_attempt \
+                       and not isinstance(err, Pyro5.errors.TimeoutError):
+                        log_exception('Communication failed with car_sensor',
+                                      *sys.exc_info())
+                        debug("".join(Pyro5.errors.get_pyro_traceback()))
                     self.sensor = None
         raise RuntimeError('Could not communicate with car_sensor')
 

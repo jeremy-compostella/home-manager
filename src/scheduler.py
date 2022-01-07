@@ -686,22 +686,26 @@ class SchedulerProxy(SchedulerInterface):
         self.max_attempt = max_attempt
 
     def __attempt(self, method, *args):
-        for _ in range(self.max_attempt):
+        for attempt in range(self.max_attempt):
+            last_attempt = attempt == self.max_attempt - 1
             if not self._scheduler:
                 try:
                     self._scheduler = NameServer().locate_service(MODULE_NAME)
                 except Pyro5.errors.NamingError:
-                    log_exception('Failed to locate the scheduler',
-                                  *sys.exc_info())
+                    if last_attempt:
+                        log_exception('Failed to locate the scheduler',
+                                      *sys.exc_info())
                 except Pyro5.errors.CommunicationError:
-                    log_exception('Cannot communicate with the nameserver',
-                                  *sys.exc_info())
+                    if last_attempt:
+                        log_exception('Cannot communicate with the nameserver',
+                                      *sys.exc_info())
             if self._scheduler:
                 try:
                     return getattr(self._scheduler, method)(*args)
                 except Pyro5.errors.PyroError:
-                    log_exception('Communication failed with the scheduler',
-                                  *sys.exc_info())
+                    if last_attempt:
+                        log_exception('Communication failed with the scheduler',
+                                      *sys.exc_info())
                     self._scheduler = None
         return None
 
