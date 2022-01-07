@@ -200,8 +200,6 @@ class HVACTask(Task, Sensor):
         if not mode:
             return timedelta()
         deviation = self._deviation()
-        target = self.indoor_temp - deviation
-        target += mode.value * self.settings.temperature_offset
         rate = self.model.time(self.param.outdoor_temp)
         return rate * abs(deviation)
 
