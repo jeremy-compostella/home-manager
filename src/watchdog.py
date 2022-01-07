@@ -120,16 +120,16 @@ class Watchdog(WatchdogInterface):
 
     @Pyro5.api.expose
     def register(self, pid: int, name: str, timeout: timedelta = None):
+        try:
+            self._monitor.track('process ' + name, True)
+        except RuntimeError:
+            pass
         if not timeout:
             timeout = timedelta(minutes=3)
         if pid not in self._processes:
             process = Process(name, pid, timeout)
             self._processes[pid] = process
             debug('Start monitoring %s' % process)
-            try:
-                self._monitor.track('process ' + process.name, True)
-            except RuntimeError:
-                pass
 
     @Pyro5.api.expose
     def unregister(self, pid: int) -> None:
@@ -187,22 +187,25 @@ class WatchdogProxy(WatchdogInterface):
         self.max_attempt = max_attempt
 
     def __attempt(self, func):
-        for _ in range(self.max_attempt):
+        for attempt in range(self.max_attempt):
             if not self._watchdog:
                 try:
                     self._watchdog = NameServer().locate_service(MODULE_NAME)
                 except Pyro5.errors.NamingError:
-                    log_exception('Failed to locate the watchdog',
-                                  *sys.exc_info())
+                    if attempt == self.max_attempt - 1:
+                        log_exception('Failed to locate the watchdog',
+                                      *sys.exc_info())
                 except Pyro5.errors.CommunicationError:
-                    log_exception('Cannot communicate with the nameserver',
-                                  *sys.exc_info())
+                    if attempt == self.max_attempt - 1:
+                        log_exception('Cannot communicate with the nameserver',
+                                      *sys.exc_info())
             if self._watchdog:
                 try:
                     return func()
                 except Pyro5.errors.PyroError:
-                    log_exception('Communication failed with the watchdog',
-                                  *sys.exc_info())
+                    if attempt == self.max_attempt - 1:
+                        log_exception('Communication failed with the watchdog',
+                                      *sys.exc_info())
                     self._watchdog = None
         return None
 
