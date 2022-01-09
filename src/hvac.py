@@ -344,7 +344,10 @@ class HVACTask(Task, Sensor):
     @property
     def indoor_temp(self):
         '''Current indoor temperature.'''
-        return self.read()[self.settings.temperature_sensor]
+        try:
+            return self.read()[self.settings.temperature_sensor]
+        except KeyError as err:
+            raise RuntimeError('%s temperature is not available') from err
 
     @Pyro5.api.expose
     def units(self, **kwargs):
