@@ -1,12 +1,132 @@
-This project aims to optimize the use of solar produced energy in a residential home. In the implementation described below it optimizes three appliances: an Electric Vehicle charger, a water heater and an HVAC system. The project has focused so far on these three appliances because they add up to approximately 70% of a my home energy usage and they are a form of energy storage.
+#+OPTIONS: broken-links:t toc:nil hidestars indent inlineimages author:nil ^:nil
+#+AUTHOR: Jeremy Compostella <jeremy.compostella@gmail.com>
+#+TITLE: Solar Power usage optimization in a residential home
+#+EXPORT_FILE_NAME: README.md
 
-My home is located in Phoenix, Arizona and my solar system is not equipped with battery system. Even though at this location 296 days per year are either sunny or partly sunny, photovoltaic production is still highly unpredictable and I quickly confirmed that a time based schedule was not going to be enough to meet to the ambitious goal of running 100% of the car and approximately 60 to 70% of my home globally on the solar panels production.
+This project aims to optimize the use of solar produced energy in a residential home. In the implementation described below it optimizes three appliances: an Electric Vehicle charger, a water heater and an HVAC system. The project has focused so far on these three appliances because they add up to approximately 72% of a my home energy usage and they are a form of energy storage.
+
+My home is located in Phoenix, Arizona and my solar system is not equipped with battery system. Even though at this location 296 days per year are either sunny or partly sunny, photovoltaic production is still highly unpredictable and I quickly confirmed that a time based schedule was not going to be enough to meet to the ambitious goal of running 100% of the car and \approx 60 to 70% of my entire home consumption coming from the solar panels production. 
+
+#+name: monthly-data
+#+begin_src python :session :exports none :results output
+  from dateutil import parser
+  from src.tools import get_database
+
+  def dict_factory(cursor, row):
+      data = {}
+      for idx, col in enumerate(cursor.description):
+          data[col[0]] = row[idx]
+      return data
+
+  def total(record):
+      return sum([v for k, v in record.items() \
+                  if k not in ['net', 'solar', 'from_grid',
+                               'to_grid', 'title', 'local']])
+
+  def monthly_data():
+      months = {}
+      with get_database() as database:
+          database.row_factory = dict_factory
+          cursor = database.cursor()
+          req = 'SELECT * FROM daily_power'
+          cursor.execute(req)
+          daily_power = cursor.fetchall()
+      for day in daily_power:
+          month = parser.parse(day['timestamp']).strftime("%B\n%Y")
+          if month in months:
+              months[month] = {k:months[month][k] + v \
+                               for k, v in day.items() \
+                               if k != 'timestamp'}
+          else:
+              months[month] = day.copy()
+      for month in months:
+          record = months[month]
+          record['other'] = -(total(record) + record['solar'] - record['net'])
+          for key, value in record.items():
+              record[key] = abs(value)
+          record['hvac'] = record['a_c'] + record['air_handler']
+          record['local'] = record['solar'] - record['to_grid']
+          del record['a_c']
+          del record['air_handler']
+          record['title'] = '%s' % month
+      return list(months.values())
+
+  print(monthly_data())
+#+end_src
 
 The illustration below shows the energy consumption distribution of my home since I started this project.
 
-[[./doc/images/energy_consumption_distribution.png]]
+#+begin_src python :session: :results file :exports results :var data=monthly-data
+   import matplotlib.pyplot as plt
+   import numpy as np
 
-This diagram does not reflect the result of the latest version of this project because I went through several proof of concepts over time. Nevertheless, it allows to see than on average more than 60% of the electricity used came from the solar panels.
+   data = eval(data)
+   width = 0.35
+   fig, ax = plt.subplots()
+   fig.set_size_inches(11.75, 5.79)
+
+   x = np.arange(len(data))
+   ax.bar(x - width/2,
+	    [record['local'] for record in data],
+	    width, bottom=[record['from_grid'] for record in data],
+	    label='Energy from the solar production', color='lightblue')
+   ax.bar(x - width/2, [record['from_grid'] for record in data],
+	    width, label='Energy from the grid', color='lightcoral')
+
+   for i, record in enumerate(data):
+       ax.text(i - width/2 - .1, record['from_grid'] + record['local'] + 20,
+		 '%d%%' % (record['local'] / (record['local'] + record['from_grid']) * 100),
+		 color='lightblue', fontweight='bold')
+
+   prev = [0.0 for _ in data]
+   COLORS = {'pool':"tab:blue",
+	       'water_heater': 'gold',
+	       'hvac': 'tab:cyan',
+	       'range': 'tab:red',
+	       'ev': 'tab:green',
+	       'dryer': 'tab:orange',
+	       'other': 'lightgrey'}
+   for consumer in ['pool', 'water_heater', 'hvac', 'range',
+		      'ev', 'dryer', 'other']:
+       ax.bar(x + width/2 + .01,
+		 [record[consumer] for record in data],
+		 width, bottom=prev, label=consumer, color=COLORS[consumer])
+       prev = [a + b for a, b in zip([record[consumer] for record in data], prev)]
+
+   ax.set_xticks(x)
+   ax.set_xticklabels([record['title'] for record in data])
+   ax.set_title('Energy consumption distribution')
+   ax.legend(loc='best')
+   plt.grid(which='major', linestyle='dotted')
+   fname = 'doc/images/energy_consumption_distribution.png'
+   fig.tight_layout()
+   plt.savefig(fname)
+   return fname
+#+end_src
+
+#+RESULTS:
+[[file:doc/images/energy_consumption_distribution.png]]
+
+#+name: powered-by-solar
+#+begin_src python :session :exports none :results value :var data=monthly-data
+  data = eval(data)
+  str(round((1 - (sum([record['from_grid'] for record in data]) /
+       sum([total(record) for record in data]))) * 100)) + '%'
+#+end_src
+
+#+name: db-first-month
+#+begin_src python :session :exports none :results value :var data=monthly-data
+  data = eval(data)
+  data[0]['title'].replace('\n', ' ')
+#+end_src
+
+#+name: db-last-month
+#+begin_src python :session :exports none :results value :var data=monthly-data
+  data = eval(data)
+  data[-1]['title'].replace('\n', ' ')
+#+end_src
+
+This diagram does not reflect the result of the latest version of this project because I went through several proof of concepts over time. Nevertheless, it allows to see that between call_db-first-month() {{{results(=June 2021=)}}} and call_db-last-month() {{{results(=January 2022=)}}}, on average \approx call_powered-by-solar() {{{results(=62%=)}}} of the electricity used by my home came from the solar panels.
 
 The implementation relies on various modules providing services such as weather forecast, instant power consumption records, solar power prediction, home thermal model, appliances controls and a scheduler. *Note*: This project implementation is not generic enough to be plugged-in as-is to control any system. Some modules rely on specific hardware devices or specific software interfaces. For instance, the ~car_charger~ task module relies on the Pulsar II Wallbox\reg charger   and have dependencies on their cloud service. Nevertheless, I believe that most of this project can be re-use in various forms and this is why I made it available publicly.
 
@@ -20,23 +140,23 @@ The diagram below represents the principal communications between the main modul
 
 #+begin_src dot :file doc/images/programs-communication.png :exports results
   digraph {
-	  node [shape=box];
-	  "car_charger" -> "scheduler"
-	  "car_charger" -> "power_sensor"
-	  "car_charger" -> "power_simulator"
-	  "car_charger" -> "car_sensor"
+          node [shape=box];
+          "car_charger" -> "scheduler"
+          "car_charger" -> "power_sensor"
+          "car_charger" -> "power_simulator"
+          "car_charger" -> "car_sensor"
 
-	  "hvac" -> "scheduler"
-	  "hvac" -> "power_simulator"
-	  "hvac" -> "weather"
+          "hvac" -> "scheduler"
+          "hvac" -> "power_simulator"
+          "hvac" -> "weather"
 
-	  "power_simulator" -> "power_sensor"
-	  "power_simulator" -> "weather"
+          "power_simulator" -> "power_sensor"
+          "power_simulator" -> "weather"
 
-	  "scheduler" -> "power_sensor"
-	  "scheduler" -> "power_simulator"
+          "scheduler" -> "power_sensor"
+          "scheduler" -> "power_simulator"
 
-	  "water_heater" -> "scheduler"
+          "water_heater" -> "scheduler"
   }
 #+end_src
 
