@@ -347,7 +347,8 @@ class HVACTask(Task, Sensor):
         try:
             return self.read()[self.settings.temperature_sensor]
         except KeyError as err:
-            raise RuntimeError('%s temperature is not available') from err
+            raise RuntimeError('%s temperature is not available'
+                               % self.settings.temperature_sensor) from err
 
     @Pyro5.api.expose
     def units(self, **kwargs):
