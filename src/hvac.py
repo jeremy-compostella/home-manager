@@ -527,7 +527,7 @@ class HVACParam(threading.Thread):
                     self._data['target_temp'] = self.settings.comfort_zone[0]
                 else:
                     self._data['target_temp'] = target_temp
-            debug('Target temperature updated to %s' % target_temp)
+            debug('Target: %sF at %s' % (target_temp, self.target_time))
         except (RuntimeError, Pyro5.errors.PyroError):
             log_exception('Target temperature update failed', *sys.exc_info())
 
