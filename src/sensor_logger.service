@@ -1,0 +1,16 @@
+[Unit]
+Description=Task Scheduler Service
+After=nameserver.service watchdog.service power_sensor.service
+Wants=nameserver.service watchdog.service power_sensor.service
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+ExecStart=python3 /home/pi/src/sensor_logger.py
+TimeoutStartSec=0
+Restart=always
+RestartSec=10s
+
+[Install]
+WantedBy=default.target

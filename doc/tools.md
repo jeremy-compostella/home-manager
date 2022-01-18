@@ -57,3 +57,13 @@ def get_storage()
 
 Return a shelve object for dynamic data storage.
 
+<a id="tools.get_database"></a>
+
+#### get\_database
+
+```python
+def get_database()
+```
+
+Return a SQLite object for persistent data storage.
+

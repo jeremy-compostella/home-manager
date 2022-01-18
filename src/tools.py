@@ -32,6 +32,7 @@ import logging
 import os
 import re
 import shelve
+import sqlite3
 import sys
 import traceback
 from configparser import ConfigParser
@@ -107,6 +108,10 @@ class Settings:
 def get_storage():
     '''Return a shelve object for dynamic data storage.'''
     return shelve.open(os.getenv('HOME') + '/storage', protocol=2)
+
+def get_database():
+    '''Return a SQLite object for persistent data storage.'''
+    return sqlite3.connect(os.getenv('HOME') + '/home-manager.db')
 
 class NameServer:
     QUALIFIERS = ['sensor', 'service', 'task']
