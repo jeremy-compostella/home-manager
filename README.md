@@ -1,12 +1,22 @@
-This project aims to optimize the use of solar produced energy in a residential home. In the implementation described below it optimizes three appliances: an Electric Vehicle charger, a water heater and an HVAC system. The project has focused so far on these three appliances because they add up to approximately 72% of a my home energy usage and they are a form of energy storage.
+**Solar Power usage optimization in a residential home**
 
-My home is located in Phoenix, Arizona and my solar system is not equipped with battery system. Even though at this location 296 days per year are either sunny or partly sunny, photovoltaic production is still highly unpredictable and I quickly confirmed that a time based schedule was not going to be enough to meet to the ambitious goal of running 100% of the car and &asymp; 60 to 70% of my entire home consumption coming from the solar panels production. 
+This project aims to optimize the use of solar produced energy in a residential home. In the implementation described below it optimizes three appliances: an Electric Vehicle charger, a water heater and an HVAC system. The project has focused so far on these three appliances because they add up to approximately `72.5%` of a my home energy usage and they are a form of energy storage.
 
-The illustration below shows the energy consumption distribution of my home since I started this project.
+My home is located in Phoenix, Arizona and my solar system is not equipped with battery system. Even though at this location 296 days per year are either sunny or partly sunny, photovoltaic production is still highly unpredictable.
+
+There are a couple of ways to measure the performance of a solar panels system in a residential home depending on expectations.
+
+1.  Return On Investment (ROI): measure from a financial point of point when does the system paid for itself and how much value it can create in it life time.
+2.  Usage vs. production ratio at the time of need: measure the "waste" of the production. This metric can be used to design systems with the best ROI. In Phoenix, Arizona utility companies buy the over production from residential home for a small fraction of the price of the energy they sell. Minimizing the over-production is critical to generate the best ROI.
+3.  Solar produced energy usage performance as measured by the ratio of energy used from the solar panel over the total energy used. To me this is the most environment oriented metric and this is the one I track.
+
+With a few experiments, I quickly confirmed the obvious: a time based schedule is not going to be enough to meet to the ambitious goal of running 100% of the car and &asymp; 60 to 70% of my entire home consumption coming from the solar panels production.
+
+The illustration below shows the distribution of the energy consumption of my home since I started this project.
 
 ![img](doc/images/energy_consumption_distribution.png)
 
-This diagram does not reflect the result of the latest version of this project because I went through several proof of concepts over time. Nevertheless, it allows to see that between `June 2021` and `January 2022`, on average &asymp; `62%` of the electricity used by my home came from the solar panels.
+I started the project during summer and made considerable progress since then but we also have to factor in that during summer the HVAC has to run at night and is necessarily going to have a significant impact on this metric. Nevertheless, it allows to see that between `June 2021` and `January 2022`, on average &asymp; `62.0%` of the electricity used by my home came from the solar panels.
 
 The implementation relies on various modules providing services such as weather forecast, instant power consumption records, solar power prediction, home thermal model, appliances controls and a scheduler. **Note**: This project implementation is not generic enough to be plugged-in as-is to control any system. Some modules rely on specific hardware devices or specific software interfaces. For instance, the `car_charger` task module relies on the Pulsar II Wallbox&reg; charger   and have dependencies on their cloud service. Nevertheless, I believe that most of this project can be re-use in various forms and this is why I made it available publicly.
 
