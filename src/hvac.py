@@ -217,6 +217,9 @@ class HVACTask(Task, Sensor):
     @Pyro5.api.oneway
     def start(self):
         mode = self._next_helpful_mode()
+        if mode is None:
+            debug('No mode to change the temperature')
+            return
         duration = self._estimate_runtime()
         target = self.param.target_temp
         target += mode.value * self.settings.temperature_offset
