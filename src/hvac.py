@@ -571,7 +571,7 @@ def my_excepthook(etype, value=None, traceback=None):
         args = sys.exc_info()
     log_exception('Uncaught exeption', *args)
     os.kill(os.getpid(), signal.SIGTERM)
-    #
+
 sys.excepthook = my_excepthook
 threading.excepthook = my_excepthook
 
