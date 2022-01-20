@@ -41,7 +41,8 @@ import obd
 import Pyro5
 
 from sensor import Sensor
-from tools import NameServer, Settings, debug, get_storage, init, log_exception
+from tools import (NameServer, Settings, db_latest_record, debug, init,
+                   log_exception)
 from watchdog import WatchdogProxy
 
 DEFAULT_SETTINGS = {'mac': '00:1D:A5:0C:80:96',
@@ -78,9 +79,13 @@ class CarSensor(Sensor):
         self.port = settings.port
         self.baudrate = settings.baudrate
         self.myobd = None
-        with get_storage() as storage:
-            self.record = storage.get(self.__class__.__name__,
-                                      {key:-1 for key in self.BOLT_CMDS})
+        latest = db_latest_record('car')
+        if latest is None:
+            self.record = {key:-1 for key in self.BOLT_CMDS}
+        else:
+            self.record = {key.replace('_', ' '):value \
+                           for key, value in latest.items() \
+                           if key != 'timestamp'}
 
     @Pyro5.api.expose
     def read(self, **kwargs):
@@ -123,8 +128,6 @@ class CarSensor(Sensor):
                 self.myobd.close()
                 self.myobd = None
             raise error
-        with get_storage() as storage:
-            storage[self.__class__.__name__] = self.record
 
 class CarSensorProxy(Sensor):
     # pylint: disable=too-few-public-methods
