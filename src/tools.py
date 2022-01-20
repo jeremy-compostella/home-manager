@@ -113,6 +113,23 @@ def get_database():
     '''Return a SQLite object for persistent data storage.'''
     return sqlite3.connect(os.getenv('HOME') + '/home-manager.db')
 
+def db_dict_factory(cursor, row):
+    data = {}
+    for idx, col in enumerate(cursor.description):
+        data[col[0]] = row[idx]
+    return data
+
+def db_latest_record(table):
+    with get_database() as database:
+        database.row_factory = db_dict_factory
+        req = 'SELECT * FROM %s ORDER BY timestamp DESC LIMIT 1' % table
+        cursor = database.cursor()
+        cursor.execute(req)
+        try:
+            return cursor.fetchall()[0]
+        except IndexError:
+            return None
+
 class NameServer:
     QUALIFIERS = ['sensor', 'service', 'task']
 

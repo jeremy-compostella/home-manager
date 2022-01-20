@@ -36,9 +36,10 @@ from datetime import datetime, timedelta, timezone
 from time import sleep
 
 import Pyro5.api
-from power_sensor import RecordScale
 
-from tools import NameServer, debug, get_database, init, log_exception
+from power_sensor import RecordScale
+from tools import (NameServer, db_dict_factory, db_latest_record, debug,
+                   get_database, init, log_exception)
 from watchdog import WatchdogProxy
 
 
@@ -63,13 +64,6 @@ def dict_to_table_values(data):
     '''Turn "data" dictionary into a SQL table fields assignment'''
     return ', '.join(['%s %s' % (field_name(key), field_type(value))
                       for key, value in data.items()])
-
-def dict_factory(cursor, row):
-    '''Turn a SQL row into a dictionary'''
-    data = {}
-    for idx, col in enumerate(cursor.description):
-        data[col[0]] = row[idx]
-    return data
 
 def execute(cursor, *args):
     '''Execute an SQL request and handle database concurrency'''
@@ -113,6 +107,7 @@ def main():
 
     watchdog = WatchdogProxy()
     nameserver = NameServer()
+    prev = {}
     debug("... is now ready to run")
     while True:
         watchdog.register(os.getpid(), module_name)
@@ -129,7 +124,7 @@ def main():
             data = sensor.read(scale=RecordScale.DAY, time=yesterday)
             table = 'daily_power'
             with get_database() as database:
-                database.row_factory = dict_factory
+                database.row_factory = db_dict_factory
                 cursor = database.cursor()
                 create_table(table, cursor, data)
                 req = 'INSERT INTO %s (timestamp, %s) VALUES (\'%s\', %s)' \
@@ -155,23 +150,23 @@ def main():
                 continue
 
             with get_database() as database:
-                database.row_factory = dict_factory
+                database.row_factory = db_dict_factory
 
                 cursor = database.cursor()
                 create_table(name, cursor, data)
 
-                req = 'SELECT * FROM %s ORDER BY timestamp DESC LIMIT 1' % name
-                execute(cursor, req)
-                prev = cursor.fetchone()
+                if name not in prev:
+                    prev[name] = db_latest_record(name)
+                    del prev[name]['timestamp']
                 data = {field_name(key): value for key, value in data.items()}
-                if prev:
-                    del prev['timestamp']
-                    if data == prev and name not in ['power', 'power_simulator']:
+                if prev[name]:
+                    if data == prev[name] \
+                       and name not in ['power', 'power_simulator']:
                         debug('No change for sensor %s, skipping' % name)
                         continue
-                    if len(data) > len(prev):
+                    if len(data) > len(prev[name]):
                         for key, value in data.items():
-                            if key in prev:
+                            if key in prev[name]:
                                 continue
                             debug('Adding missing column %s' % field_name(key))
                             req = 'ALTER TABLE %s ADD COLUMN %s %s' \
@@ -184,6 +179,7 @@ def main():
                        timestamp,
                        ', '.join([str(value) for value in data.values()]))
                 execute(cursor, req)
+                prev[name] = data
 
 if __name__ == "__main__":
     main()
