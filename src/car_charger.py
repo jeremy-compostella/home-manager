@@ -50,7 +50,8 @@ from watchdog import WatchdogProxy
 
 DEFAULT_SETTINGS = {'power_sensor_key': 'EV',
                     'min_available_current': 6,
-                    'cycle_length': 15}
+                    'cycle_length': 15,
+                    'max_state_of_charge': 79.6}
 
 MODULE_NAME = 'car_charger'
 
@@ -138,7 +139,8 @@ class CarCharger(Task):
     @Pyro5.api.expose
     def is_runnable(self):
         '''True if calling the 'start' function would initiate charging.'''
-        return self.status_description in self.PLUGGED_IN \
+        return self.state_of_charge < self.settings.max_state_of_charge \
+            and self.status_description in self.PLUGGED_IN \
             and self.status_description != self.FULLY_CHARGED
 
     @Pyro5.api.expose
@@ -166,8 +168,8 @@ class CarCharger(Task):
     def adjust_priority(self, state_of_charge):
         '''Update the priority according to the current state of charge'''
         self.state_of_charge = state_of_charge
-        thresholds = {Priority.URGENT: 50, Priority.HIGH: 65,
-                      Priority.MEDIUM: 80, Priority.LOW: 101}
+        thresholds = {Priority.URGENT: 40, Priority.HIGH: 55,
+                      Priority.MEDIUM: 70, Priority.LOW: 101}
         for priority in reversed(Priority):
             if state_of_charge < thresholds[priority]:
                 self.priority = priority
