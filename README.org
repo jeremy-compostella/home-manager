@@ -3,7 +3,7 @@
 #+EXPORT_FILE_NAME: README.md
 #+TITLE: Solar Power usage optimization in a residential home
 
-*Solar Power usage optimization in a residential home
+*Solar Power usage optimization in a residential home*
 
 #+name: monthly-data
 #+begin_src python :session :exports none :results output
@@ -116,14 +116,14 @@ The illustration below shows the distribution of the energy consumption of my ho
    ax.set_title('Energy consumption distribution')
    ax.legend(loc='best')
    plt.grid(which='major', linestyle='dotted')
-   fname = 'doc/images/energy_consumption_distribution.png'
+   fname = 'doc/images/energy_consumption_distribution.svg'
    fig.tight_layout()
    plt.savefig(fname)
    return fname
 #+end_src
 
 #+RESULTS:
-[[file:doc/images/energy_consumption_distribution.png]]
+[[file:doc/images/energy_consumption_distribution.svg]]
 
 #+name: powered-by-solar
 #+begin_src python :session :exports none :results value :var data=monthly-data
@@ -144,7 +144,7 @@ The illustration below shows the distribution of the energy consumption of my ho
   data[-1]['title'].replace('\n', ' ')
 #+end_src
 
-I started the project during summer and made considerable progress since then but we also have to factor in that during summer the HVAC has to run at night and is necessarily going to have a significant impact on this metric. Nevertheless, it allows to see that between call_db-first-month() {{{results(=June 2021=)}}} and call_db-last-month() {{{results(=January 2022=)}}}, call_powered-by-solar() {{{results(=62.4%=)}}} of the electricity used by my home came from the solar panels.
+I started the project during summer and made considerable progress since then but we also have to factor in that during summer the HVAC has to run at night and is necessarily going to have a significant impact on this metric. Nevertheless, it allows to see that between call_db-first-month() {{{results(=June 2021=)}}} and call_db-last-month() {{{results(=January 2022=)}}}, call_powered-by-solar() {{{results(=62.5%=)}}} of the electricity used by my home came from the solar panels.
 
 The implementation relies on various modules providing services such as weather forecast, instant power consumption records, solar power prediction, home thermal model, appliances controls and a scheduler. *Note*: This project implementation is not generic enough to be plugged-in as-is to control any system. Some modules rely on specific hardware devices or specific software interfaces. For instance, the ~car_charger~ task module relies on the Pulsar II Wallbox\reg charger   and have dependencies on their cloud service. Nevertheless, I believe that most of this project can be re-use in various forms and this is why I made it available publicly.
 
@@ -156,7 +156,7 @@ The software architecture is based on well separated python modules each running
 
 The diagram below represents the principal communications between the main modules.
 
-#+begin_src dot :file doc/images/programs-communication.png :exports results
+#+begin_src dot :file doc/images/programs-communication.svg :exports results
   digraph {
           node [shape=box];
           "car_charger" -> "scheduler"
@@ -179,7 +179,7 @@ The diagram below represents the principal communications between the main modul
 #+end_src
 
 #+RESULTS:
-[[file:doc/images/programs-communication.png]]
+[[file:doc/images/programs-communication.svg]]
 
 Now let's have go a short presentation or the modules:
 

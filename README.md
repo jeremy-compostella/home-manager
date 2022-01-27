@@ -1,4 +1,4 @@
-\*Solar Power usage optimization in a residential home
+**Solar Power usage optimization in a residential home**
 
 This project aims to optimize the use of solar produced energy in a residential home. In the implementation described below it optimizes three appliances: an Electric Vehicle charger, a water heater and an HVAC system. The project has focused so far on these three appliances because they add up to approximately `72.2%` of a my home energy usage and they are a form of energy storage.
 
@@ -14,9 +14,9 @@ With a few experiments, I quickly confirmed the obvious: a time based schedule i
 
 The illustration below shows the distribution of the energy consumption of my home since I started this project.
 
-![img](doc/images/energy_consumption_distribution.png)
+![img](doc/images/energy_consumption_distribution.svg)
 
-I started the project during summer and made considerable progress since then but we also have to factor in that during summer the HVAC has to run at night and is necessarily going to have a significant impact on this metric. Nevertheless, it allows to see that between `June 2021` and `January 2022`, `62.4%` of the electricity used by my home came from the solar panels.
+I started the project during summer and made considerable progress since then but we also have to factor in that during summer the HVAC has to run at night and is necessarily going to have a significant impact on this metric. Nevertheless, it allows to see that between `June 2021` and `January 2022`, `62.5%` of the electricity used by my home came from the solar panels.
 
 The implementation relies on various modules providing services such as weather forecast, instant power consumption records, solar power prediction, home thermal model, appliances controls and a scheduler. **Note**: This project implementation is not generic enough to be plugged-in as-is to control any system. Some modules rely on specific hardware devices or specific software interfaces. For instance, the `car_charger` task module relies on the Pulsar II Wallbox&reg; charger   and have dependencies on their cloud service. Nevertheless, I believe that most of this project can be re-use in various forms and this is why I made it available publicly.
 
@@ -28,7 +28,7 @@ The software architecture is based on well separated python modules each running
 
 The diagram below represents the principal communications between the main modules.
 
-![img](doc/images/programs-communication.png)
+![img](doc/images/programs-communication.svg)
 
 Now let's have go a short presentation or the modules:
 
