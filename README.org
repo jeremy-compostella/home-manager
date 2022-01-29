@@ -200,5 +200,52 @@ The project provides multiple tasks:
 2. The [[./doc/water_heater.md][water_heater]] task is responsible of heating the water tank. In opposition to the car which has a large enough capacity to be able to skip a couple of days of charge the water heater has to run every single day regardless of the photovoltaic production. Therefor the strategy is a little bit more complex: the task priority is set based on the water tank level and temperature but also on how close we are of the target time. The target time is defined as the last point in time of the day when the photovoltaic system theoretically produces enough power to cover 100% of the water heater needs. In addition to that, if the priority is the highest possible and we are close to the target time, the water heater reports that it meets its running criteria regardless of the current consumption/production ratio. That way the [[./doc/water_heater.md][water_heater]] task is guaranteed to be scheduled and meet its daily goal.
 3. The [[./doc/hvac.md][hvac]] task is responsible of heating and cooling the home during daylight. At night, the regular thermostat schedule resumes. In my home the HVAC system clearly is the appliance consuming the most energy and this is why the HVAC optimization is critical.
    Similarly to the [[./doc/water_heater.md][water_heater]] task a target time is determined thanks to the [[./doc/power_simulator.md][power_simulator]]. However, the algorithm determining the target time is slightly more complex because the HVAC system power consumption varies when the outdoor temperature changes and under high temperature or low temperature, the HVAC system needs more power than what the photovoltaic system can produce. In order to calculate the target time, the hvac task uses a performance model of the HVAC system built out of data recorded over several month of use. The following diagram is a representation of the HVAC performance model. For a certain range of outdoor temperatures, the blue line represents the power used by the HVAC system and the orange line the number of minutes needed to change the temperature by one degree Fahrenheit.
-   [[./doc/images/hvac_model.png]]
+   #+begin_src python :session: :results file :exports results
+     import matplotlib.pyplot as plt
+     import numpy as np
+     import bezier
+
+     from src.tools import db_load_table
+
+     def evaluate_curve(curve, temperature):
+	 t = (temperature - curve.nodes[0][0]) / (curve.nodes[0][-1] - curve.nodes[0][0])
+	 return curve.evaluate(t)[1][0].item()
+
+     data = db_load_table('hvac_model')
+
+     nodes = np.asfortranarray([[r[key] for r in data] for key \
+				in ['temperature', 'power']])
+     power_curve = bezier.Curve(nodes, degree=len(data) - 1)
+     nodes = np.asfortranarray([[r[key] for r in data] for key \
+				in ['temperature', 'minute_per_degree']])
+     time_curve = bezier.Curve(nodes, degree=len(data) - 1)
+
+     fig, ax = plt.subplots()
+     ax.set(xlabel='Temperature °F', ylabel='kW')
+     min_temp = int(power_curve.nodes[0][0].item())
+     max_temp = int(power_curve.nodes[0][-1].item())
+     temperatures = list(range(min_temp, max_temp + 1))
+     ax.plot(temperatures,
+	     [evaluate_curve(power_curve, temp) for temp \
+	      in range(min_temp, max_temp + 1)],
+	     label='Power')
+     ax2 = ax.twinx()
+     ax2.set(ylabel='minutes')
+     ax2.plot(temperatures,
+	     [evaluate_curve(time_curve, temp) for temp \
+	      in range(min_temp, max_temp + 1)],
+	      label='Time', color='#ff7f0e')
+     ax.legend(loc='upper left')
+     ax.set_title('HVAC System Performance Model')
+     ax2.legend(loc='lower right')
+     plt.grid(visible=True, which='both', axis='both', linestyle='dotted')
+     fname = './doc/images/hvac_model.svg'
+     fig.tight_layout()
+     plt.savefig(fname)
+     return fname
+   #+end_src
+
+   #+RESULTS:
+   [[file:./doc/images/hvac_model.svg]]
+
    The HVAC system needs a target time but also a target temperature. The target temperature is defined as the temperature to be at target time so that at a later specified time the home would be at a desired temperature. For instance, if the desire is to have a temperature of 73°F at 11pm, the [[./doc/hvac.md][hvac]] task computes what the temperature should be at target time taking into account the expected temperature change of the home between the target time and 11PM. This computation relies on a home thermal model built out of data captured over several months.

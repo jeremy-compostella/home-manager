@@ -130,6 +130,14 @@ def db_latest_record(table):
         except IndexError:
             return None
 
+def db_load_table(table):
+    with get_database() as database:
+        database.row_factory = db_dict_factory
+        req = 'SELECT * FROM %s' % table
+        cursor = database.cursor()
+        cursor.execute(req)
+        return cursor.fetchall()
+
 class NameServer:
     QUALIFIERS = ['sensor', 'service', 'task']
 

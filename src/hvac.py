@@ -54,7 +54,8 @@ from monitor import MonitorProxy
 from power_simulator import PowerSimulatorProxy
 from scheduler import Priority, SchedulerProxy, Task
 from sensor import Sensor
-from tools import NameServer, Settings, debug, get_storage, init, log_exception
+from tools import (NameServer, Settings, db_load_table, debug, get_storage,
+                   init, log_exception)
 from watchdog import WatchdogProxy
 from weather import WeatherProxy
 
@@ -82,8 +83,7 @@ class HVACModel:
 
     '''
     def __init__(self):
-        with get_storage() as storage:
-            data = storage['hvac_model']
+        data = db_load_table('hvac_model')
         nodes = np.asfortranarray([[r[key] for r in data] for key \
                                    in ['temperature', 'power']])
         self.power_curve = bezier.Curve(nodes, degree=len(data) - 1)
@@ -131,8 +131,7 @@ class HomeModel:
 
     '''
     def __init__(self):
-        with get_storage() as storage:
-            data = storage['home_model']
+        data = db_load_table('home_model')
         nodes = np.asfortranarray([[r[key] for r in data] for key \
                                    in ['temperature', 'degree_per_minute']])
         self.curve = bezier.Curve(nodes, degree=len(data) - 1)
