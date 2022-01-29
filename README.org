@@ -75,51 +75,62 @@ With a few experiments, I quickly confirmed the obvious: a time based schedule i
 The illustration below shows the distribution of the energy consumption of my home since I started this project.
 
 #+begin_src python :session: :results file :exports results :var data=monthly-data
-   import matplotlib.pyplot as plt
-   import numpy as np
+  import matplotlib.pyplot as plt
+  import numpy as np
 
-   data = eval(data)
-   width = 0.35
-   fig, ax = plt.subplots()
-   fig.set_size_inches(11.75, 5.79)
+  LABELS = {'pool': 'Pool',
+	    'water_heater': 'Water heater',
+	    'hvac': 'HVAC',
+	    'range': 'Kitchen range',
+	    'ev': 'Electric Vehicle',
+	    'dryer': 'Dryer',
+	    'other': 'Other'}
 
-   x = np.arange(len(data))
-   ax.bar(x - width/2,
-	    [record['local'] for record in data],
-	    width, bottom=[record['from_grid'] for record in data],
-	    label='Energy from the solar production', color='lightblue')
-   ax.bar(x - width/2, [record['from_grid'] for record in data],
-	    width, label='Energy from the grid', color='lightcoral')
+  data = eval(data)
+  width = 0.35
+  fig, ax = plt.subplots()
+  fig.set_size_inches(11.75, 5.79)
 
-   for i, record in enumerate(data):
-       ax.text(i - width/2 - .1, record['from_grid'] + record['local'] + 20,
-		 '%d%%' % (record['local'] / (record['local'] + record['from_grid']) * 100),
-		 color='lightblue', fontweight='bold')
+  x = np.arange(len(data))
+  ax.bar(x - width/2,
+	 [record['local'] for record in data],
+	 width, bottom=[record['from_grid'] for record in data],
+	 label='Energy from the solar production', color='lightblue')
+  ax.bar(x - width/2, [record['from_grid'] for record in data],
+	 width, label='Energy from the grid', color='lightcoral')
 
-   prev = [0.0 for _ in data]
-   COLORS = {'pool':"tab:blue",
-	       'water_heater': 'gold',
-	       'hvac': 'tab:cyan',
-	       'range': 'tab:red',
-	       'ev': 'tab:green',
-	       'dryer': 'tab:orange',
-	       'other': 'lightgrey'}
-   for consumer in ['pool', 'water_heater', 'hvac', 'range',
-		      'ev', 'dryer', 'other']:
-       ax.bar(x + width/2 + .01,
-		 [record[consumer] for record in data],
-		 width, bottom=prev, label=consumer, color=COLORS[consumer])
-       prev = [a + b for a, b in zip([record[consumer] for record in data], prev)]
+  for i, record in enumerate(data):
+      ax.text(i - width/2 - .1, record['from_grid'] + record['local'] + 20,
+	      '%d%%' % round(record['local'] / (record['local'] + record['from_grid']) * 100),
+	      color='lightblue', fontweight='bold')
 
-   ax.set_xticks(x)
-   ax.set_xticklabels([record['title'] for record in data])
-   ax.set_title('Energy consumption distribution')
-   ax.legend(loc='best')
-   plt.grid(which='major', linestyle='dotted')
-   fname = 'doc/images/energy_consumption_distribution.svg'
-   fig.tight_layout()
-   plt.savefig(fname)
-   return fname
+  prev = [0.0 for _ in data]
+  COLORS = {'pool':"tab:blue",
+	    'water_heater': 'gold',
+	    'hvac': 'tab:cyan',
+	    'range': 'tab:red',
+	    'ev': 'tab:green',
+	    'dryer': 'tab:orange',
+	    'other': 'lightgrey'}
+  for consumer in ['pool', 'water_heater', 'hvac', 'range',
+		   'ev', 'dryer', 'other']:
+      ax.bar(x + width/2 + .01,
+	     [record[consumer] for record in data],
+	     width, bottom=prev, label=LABELS[consumer],
+	     color=COLORS[consumer])
+      prev = [a + b for a, b in zip([record[consumer] for record in data], prev)]
+
+  ax.set(ylabel='kWh')
+  ax.set_xticks(x)
+  ax.set_xticklabels([record['title'] for record in data])
+  ax.set_title('Energy Consumption Distribution')
+  ax.set_yticks(np.arange(0, 2100, step=100))
+  ax.legend(loc='best')
+  plt.grid(which='major', linestyle='dotted')
+  fname = 'doc/images/energy_consumption_distribution.svg'
+  fig.tight_layout()
+  plt.savefig(fname)
+  return fname
 #+end_src
 
 #+RESULTS:
