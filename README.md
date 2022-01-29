@@ -26,11 +26,11 @@ When I started this project I discarded existent Home Automation "framework" suc
 
 The software architecture is based on well separated python modules each running in their dedicate process. Each module implements known interfaces such as [Sensor](doc/sensor.md#sensor-objects) or [Task](doc/scheduler.md#task-objects). Alternatively or in addition, a module can expose its a original service interface. The inter-processes communication is guaranteed by the [pyro5](https://pypi.org/project/Pyro5/) remote objects communication library. Each service, sensor or task is registered to a pyro5 nameserver under the `home-manager` namespace.  The services are under the `home-manager.service` sub-namespace, the sensors under the `home-manager.sensor` sub-namespace and the tasks are under the `home-manager.task` sub-namespace. For instance, the task responsible of the HVAC system is implemented by the [hvac.py](./src/hvac.py) program and registered as `home-manager.task.hvac` to the nameserver.
 
-The diagram below represents the principal communications between the main modules.
+The following diagram represents the most important dependencies between the principal modules.
 
 ![img](doc/images/programs-communication.svg)
 
-Now let's have go a short presentation or the modules:
+Now let's have a short presentation or the modules:
 
 <span class="underline">The main sensors are</span>:
 

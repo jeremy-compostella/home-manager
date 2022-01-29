@@ -166,7 +166,7 @@ When I started this project I discarded existent Home Automation "framework" suc
 
 The software architecture is based on well separated python modules each running in their dedicate process. Each module implements known interfaces such as [[file:doc/sensor.md#sensor-objects][Sensor]] or [[file:doc/scheduler.md#task-objects][Task]]. Alternatively or in addition, a module can expose its a original service interface. The inter-processes communication is guaranteed by the [[https://pypi.org/project/Pyro5/][pyro5]] remote objects communication library. Each service, sensor or task is registered to a pyro5 nameserver under the ~home-manager~ namespace.  The services are under the ~home-manager.service~ sub-namespace, the sensors under the ~home-manager.sensor~ sub-namespace and the tasks are under the ~home-manager.task~ sub-namespace. For instance, the task responsible of the HVAC system is implemented by the [[./src/hvac.py][hvac.py]] program and registered as ~home-manager.task.hvac~ to the nameserver.
 
-The diagram below represents the principal communications between the main modules.
+The following diagram represents the most important dependencies between the principal modules.
 
 #+begin_src dot :file doc/images/programs-communication.svg :exports results
   digraph {
@@ -193,7 +193,7 @@ The diagram below represents the principal communications between the main modul
 #+RESULTS:
 [[file:doc/images/programs-communication.svg]]
 
-Now let's have go a short presentation or the modules:
+Now let's have a short presentation or the modules:
 
 _The main sensors are_:
 1. The [[./doc/power_sensor.md][power_sensor]] (~home_manager.sensor.power~) module provides instantaneous power consumption and power production readings. It also provides power reading over a certain period of time such as one minute, one hour or one day. This sensor is used by the [[./doc/scheduler.md][scheduler]] to build power consumption statistics leading to task scheduling decisions. Some task such as [[./doc/car_charger.md][car_charger]] also uses this sensor.
