@@ -292,7 +292,8 @@ class WaterHeater(Task, Sensor):
 
         - If the water heater has been running for a little while and suddenly
           stop using power, we consider it the tank is full, the water fully
-          heated and make the task not runnable for four times 'no_power_delay'.
+          heated and make the task not runnable for four times
+          'no_power_delay'.
 
         '''
         debug('meet_running_criteria(%.3f, %.3f)' % (ratio, power))
