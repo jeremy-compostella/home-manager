@@ -319,7 +319,7 @@ class WaterHeater(Task, Sensor):
         if self.priority == Priority.URGENT \
            and self.target_time - datetime.now() < self.estimate_run_time():
             return True
-        return ratio >= 1
+        return ratio >= .85 if self.is_running() else ratio >= 1
 
     @Pyro5.api.expose
     @property
