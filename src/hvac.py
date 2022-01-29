@@ -317,6 +317,10 @@ class HVACTask(Task, Sensor):
     def desc(self):
         return 'HVAC(%s, %.1f)' % (self.priority.name, self.indoor_temp)
 
+    def _is_in_comfortable_range(self):
+        return self.indoor_temp >= self.settings.comfort_range[0] \
+            and self.indoor_temp <= self.settings.comfort_range[1]
+
     def adjust_priority(self):
         '''Adjust the priority based on the estimate run time.'''
         run_time = self._estimate_runtime()
@@ -329,6 +333,9 @@ class HVACTask(Task, Sensor):
             self.priority = min(Priority)
         else:
             self.priority = Priority(max(Priority) - floor(count))
+        if not self._is_in_comfortable_range() \
+           and self.priority < Priority.URGENT:
+            self.priority = Priority(self.priority + 1)
 
     def adjust_power(self):
         '''Update the power necessary to run HVAC system.'''
