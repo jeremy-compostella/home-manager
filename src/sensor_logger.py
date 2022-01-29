@@ -60,11 +60,6 @@ def dict_to_table_fields(data):
     return ', '.join(['%s %s' % (field_name(key), field_type(value))
                       for key, value in data.items()])
 
-def dict_to_table_values(data):
-    '''Turn "data" dictionary into a SQL table fields assignment'''
-    return ', '.join(['%s %s' % (field_name(key), field_type(value))
-                      for key, value in data.items()])
-
 def execute(cursor, *args):
     '''Execute an SQL request and handle database concurrency'''
     for attempt in range(40):
