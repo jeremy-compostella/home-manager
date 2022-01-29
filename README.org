@@ -1,4 +1,5 @@
-#+OPTIONS: toc:nil hidestars indent inlineimages ^:nil
+#+OPTIONS: toc:nil hidestars indent inlineimages
+#+OPTIONS: ^:nil
 #+AUTHOR: Jeremy Compostella <jeremy.compostella@gmail.com>
 #+EXPORT_FILE_NAME: README.md
 #+TITLE: Solar Power usage optimization in a residential home
