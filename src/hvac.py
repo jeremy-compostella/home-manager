@@ -64,7 +64,7 @@ DEFAULT_SETTINGS = {'min_run_time': 60 * 7,
                     'temperature_offset': 2,
                     'goal_time': dtime(hour=22, minute=30),
                     'goal_temperature': 73,
-                    'comfort_zone': [71, 78],
+                    'comfort_range': [71, 78],
                     'power_sensor_keys': ['A/C', 'air handler'],
                     'temperature_sensor': 'Home'}
 
@@ -523,10 +523,10 @@ class HVACParam(threading.Thread):
                 temp_at = self.weather.temperature_at(time)
                 target_temp -= model.degree_per_minute(temp_at)
             with self._lock:
-                if target_temp > self.settings.comfort_zone[1]:
-                    self._data['target_temp'] = self.settings.comfort_zone[1]
-                elif target_temp < self.settings.comfort_zone[0]:
-                    self._data['target_temp'] = self.settings.comfort_zone[0]
+                if target_temp > self.settings.comfort_range[1]:
+                    self._data['target_temp'] = self.settings.comfort_range[1]
+                elif target_temp < self.settings.comfort_range[0]:
+                    self._data['target_temp'] = self.settings.comfort_range[0]
                 else:
                     self._data['target_temp'] = target_temp
             debug('Target: %sF at %s' % (target_temp, self.target_time))
