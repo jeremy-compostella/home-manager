@@ -27,10 +27,10 @@
       with get_database() as database:
           database.row_factory = dict_factory
           cursor = database.cursor()
-          req = 'SELECT * FROM daily_power'
+          req = 'SELECT * FROM daily_energy'
           cursor.execute(req)
-          daily_power = cursor.fetchall()
-      for day in daily_power:
+          daily_energy = cursor.fetchall()
+      for day in daily_energy:
           month = parser.parse(day['timestamp']).strftime("%B\n%Y")
           if month in months:
               months[month] = {k:months[month][k] + v \

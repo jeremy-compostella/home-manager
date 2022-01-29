@@ -112,12 +112,12 @@ def main():
         timeout = 60 - (now.second + now.microsecond/1000000.0)
         sleep(timeout)
 
-        # Daily power record
+        # Daily energy record
         if now.hour == 0 and now.minute == 5:
             yesterday = (now - timedelta(minutes=10)).astimezone(timezone.utc)
             sensor = nameserver.locate_sensor('power')
             data = sensor.read(scale=RecordScale.DAY, time=yesterday)
-            table = 'daily_power'
+            table = 'daily_energy'
             with get_database() as database:
                 database.row_factory = db_dict_factory
                 cursor = database.cursor()
