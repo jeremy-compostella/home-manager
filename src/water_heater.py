@@ -253,8 +253,7 @@ class WaterHeater(Task, Sensor):
     @Pyro5.api.expose
     def is_runnable(self):
         '''True if the Task can be schedule.'''
-        return datetime.now() > self._not_runnable_till \
-            and not self.has_reached_target
+        return datetime.now() > self._not_runnable_till
 
     @Pyro5.api.expose
     def is_running(self):
@@ -366,7 +365,6 @@ class WaterHeater(Task, Sensor):
             if self.available >= thresholds[priority]['available'] \
                and self.temperature >= thresholds[priority]['temperature']:
                 continue
-            self.has_reached_target = False
             self.priority = priority
             now = datetime.now()
             # Increase the priority if we are close to the target time
@@ -376,7 +374,6 @@ class WaterHeater(Task, Sensor):
                 debug('Close to the target time, increase the priority')
                 self.priority = Priority(self.priority + 1)
             return
-        self.has_reached_target = True
 
     def prevent_auto_start(self):
         '''Prevent automatic turn on.
