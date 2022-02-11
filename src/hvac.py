@@ -40,8 +40,6 @@ from math import ceil, floor
 from select import select
 from time import sleep
 
-import bezier
-import numpy as np
 import pyecobee
 import Pyro5.api
 import pytz
@@ -50,12 +48,12 @@ from cachetools import TTLCache
 from dateutil import parser
 from pyecobee import HoldType, Selection, SelectionType, Thermostat
 
+from models import HomeModel, HVACModel
 from monitor import MonitorProxy
 from power_simulator import PowerSimulatorProxy
 from scheduler import Priority, SchedulerProxy, Task
 from sensor import Sensor
-from tools import (NameServer, Settings, db_load_table, debug, get_storage,
-                   init, log_exception)
+from tools import NameServer, Settings, debug, get_storage, init, log_exception
 from watchdog import WatchdogProxy
 from weather import WeatherProxy
 
@@ -73,88 +71,6 @@ class Mode(IntEnum):
     COOL = -1
     AUTO = 0
     HEAT = 1
-
-class HVACModel:
-    '''Estimate the power and efficiency at a outdoor temperature.
-
-    This model is built out of statistics computed from data collected over six
-    months. The statistics are turned into points which are smoothed using a
-    Bezier curve.
-
-    '''
-    def __init__(self):
-        data = db_load_table('hvac_model')
-        nodes = np.asfortranarray([[r[key] for r in data] for key \
-                                   in ['temperature', 'power']])
-        self.power_curve = bezier.Curve(nodes, degree=len(data) - 1)
-        nodes = np.asfortranarray([[r[key] for r in data] for key \
-                                   in ['temperature', 'minute_per_degree']])
-        self.time_curve = bezier.Curve(nodes, degree=len(data) - 1)
-
-    def _compute_t(self, temperature):
-        return (temperature - self.time_curve.nodes[0][0]) \
-            / (self.time_curve.nodes[0][-1] - self.time_curve.nodes[0][0])
-
-    def _power(self, temperature):
-        if temperature <= self.power_curve.nodes[0][0]:
-            return self.power_curve.nodes[1][0]
-        if temperature >= self.power_curve.nodes[0][-1]:
-            return self.power_curve.nodes[1][-1]
-        return self.power_curve.evaluate(self._compute_t(temperature))[1][0]
-
-    def power(self, temperature):
-        '''Power used by the system running at 'temperature'.'''
-        return self._power(temperature).item()
-
-    def _time(self, temperature):
-        if temperature <= self.time_curve.nodes[0][0]:
-            return self.time_curve.nodes[1][0]
-        if temperature >= self.time_curve.nodes[0][-1]:
-            return self.time_curve.nodes[1][-1]
-        return self.time_curve.evaluate(self._compute_t(temperature))[1][0]
-
-    def time(self, temperature):
-        '''Time necessary to change the temperature by one degree.'''
-        return timedelta(minutes=self._time(temperature))
-
-class HomeModel:
-    # pylint: disable=too-few-public-methods
-    '''Estimate the indoor temperature change in one minute.
-
-    This estimation should theoretically factor in plenty of data such as house
-    sun exposition, weather, indoor temperature, insulation parameters ... etc
-    but they are all ignored in this model.
-
-    This model is built out of statistics computed from data collected over six
-    months. The statistics are turned into points which are smoothed using a
-    Bezier curve.
-
-    '''
-    def __init__(self):
-        data = db_load_table('home_model')
-        nodes = np.asfortranarray([[r[key] for r in data] for key \
-                                   in ['temperature', 'degree_per_minute']])
-        self.curve = bezier.Curve(nodes, degree=len(data) - 1)
-
-    def _compute_t(self, temperature):
-        return (temperature - self.curve.nodes[0][0]) \
-            / (self.curve.nodes[0][-1] - self.curve.nodes[0][0])
-
-    def _degree_per_minute(self, temperature):
-        if temperature <= self.curve.nodes[0][0]:
-            return self.curve.nodes[1][0]
-        if temperature >= self.curve.nodes[0][-1]:
-            return self.curve.nodes[1][-1]
-        return self.curve.evaluate(self._compute_t(temperature))[1][0]
-
-    def degree_per_minute(self, temperature):
-        '''Temperature change in degree over a minute of time.
-
-        It returns the estimated temperature of the house when exposed at an
-        outdoor 'temperature'. The returned value can be positive or negative.
-
-        '''
-        return self._degree_per_minute(temperature).item()
 
 class HVACTask(Task, Sensor):
     '''Ecobee controller HVAC system.
@@ -461,6 +377,8 @@ class HVACParam(threading.Thread):
         self._lock = threading.Lock()
         self._data = {}
         self._updated = True
+        self.hvac_model = HVACModel()
+        self.home_model = HomeModel()
 
     @property
     def max_available_power(self):
@@ -498,13 +416,12 @@ class HVACParam(threading.Thread):
 
     def _update_target_time(self):
         power = self.max_available_power
-        model = HVACModel()
         try:
             while True:
                 _, target_time = self.power_simulator.next_power_window(power)
                 target_time = parser.parse(target_time)
                 temp_at_target = self.weather.temperature_at(target_time)
-                hvac_power = model.power(temp_at_target)
+                hvac_power = self.hvac_model.power(temp_at_target)
                 if hvac_power >= power:
                     with self._lock:
                         self._data['target_time'] = target_time
@@ -522,13 +439,22 @@ class HVACParam(threading.Thread):
         goal_time = datetime.combine(self.target_time.date(),
                                      self.settings.goal_time)
         target_temp = self.settings.goal_temperature
-        model = HomeModel()
         try:
             minutes = int((goal_time - self.target_time).total_seconds() / 60)
-            for minute in range(minutes):
-                time = self.target_time + timedelta(minutes=minute)
-                temp_at = self.weather.temperature_at(time)
-                target_temp -= model.degree_per_minute(temp_at)
+            goal_temp = 0
+            while True:
+                goal_temp = target_temp
+                for minute in range(minutes):
+                    time = self.target_time + timedelta(minutes=minute)
+                    temp_at = self.weather.temperature_at(time)
+                    goal_temp += self.home_model.degree_per_minute(goal_temp,
+                                                                   temp_at)
+                debug('For %.3F target, goal would be %.3fF' % (target_temp,
+                                                                goal_temp))
+                if abs(self.settings.goal_temperature - goal_temp) < 0.1:
+                    break
+                target_temp += self.settings.goal_temperature - goal_temp
+
             with self._lock:
                 if target_temp > self.settings.comfort_range[1]:
                     self._data['target_temp'] = self.settings.comfort_range[1]
