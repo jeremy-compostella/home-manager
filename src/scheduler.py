@@ -603,6 +603,7 @@ class Scheduler(SchedulerInterface):
             else:
                 priority = 0
             if task.meet_running_criteria(ratio) and \
+               task.is_runnable() and \
                (task.priority >= priority or task.auto_adjust):
                 return task
         return None
@@ -640,8 +641,9 @@ class Scheduler(SchedulerInterface):
                 for task in tasks_to_stop:
                     debug('Stopping %s' % task.desc)
                     task.stop()
-                self.cache.clear()
-                return
+                    self.running.remove(task)
+                    self.stopped.append(task)
+                break
         task_to_start = self.__elect_task()
         if task_to_start:
             debug('Starting %s' % task_to_start.desc)
