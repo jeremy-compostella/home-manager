@@ -120,10 +120,6 @@ class Watchdog(WatchdogInterface):
 
     @Pyro5.api.expose
     def register(self, pid: int, name: str, timeout: timedelta = None):
-        try:
-            self._monitor.track('process ' + name, True)
-        except RuntimeError:
-            pass
         if not timeout:
             timeout = timedelta(minutes=3)
         if pid not in self._processes:
@@ -135,26 +131,26 @@ class Watchdog(WatchdogInterface):
     def unregister(self, pid: int) -> None:
         if pid in self._processes:
             debug('Stop monitoring %s' % self._processes[pid])
-            try:
-                self._monitor.track('process ' + self._processes[pid].name,
-                                    False)
-            except RuntimeError:
-                pass
             del self._processes[pid]
 
     @Pyro5.api.expose
     def kick(self, pid: int) -> None:
         self._processes[pid].reset_timer()
 
-    def sanitize(self) -> None:
-        '''Verify that all the monitored processes are alive.
+    def monitor(self) -> None:
+        '''Verify the monitored processes and report status to the monitor.
 
         If any process is missing, it is automatically removed from the list of
         registered processes.
 
         '''
         for process in self._processes.copy().values():
-            if not process.is_alive():
+            alive = process.is_alive()
+            try:
+                self._monitor.track('process ' + process.name, alive)
+            except RuntimeError:
+                pass
+            if not alive:
                 debug('Process %s does not exist anymore' % process)
                 self.unregister(process.pid)
 
@@ -243,7 +239,7 @@ def main():
                                settings.max_loop_duration)
         if sockets:
             daemon.events(sockets)
-        watchdog.sanitize()
+        watchdog.monitor()
         watchdog.kill_hung_processes()
 
 if __name__ == "__main__":
