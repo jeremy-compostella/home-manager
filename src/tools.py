@@ -113,6 +113,14 @@ def get_database():
     '''Return a SQLite object for persistent data storage.'''
     return sqlite3.connect(os.getenv('HOME') + '/home-manager.db')
 
+def db_field_type(value):
+    '''Return the SQL type of "value"'''
+    if isinstance(value, float):
+        return 'float'
+    if isinstance(value, int):
+        return 'integer'
+    return 'text'
+
 def db_dict_factory(cursor, row):
     data = {}
     for idx, col in enumerate(cursor.description):
@@ -130,13 +138,31 @@ def db_latest_record(table):
         except IndexError:
             return None
 
-def db_load_table(table):
+def db_table_to_dict(table):
     with get_database() as database:
         database.row_factory = db_dict_factory
         req = 'SELECT * FROM %s' % table
         cursor = database.cursor()
         cursor.execute(req)
         return cursor.fetchall()
+
+def db_dict_to_fields(data):
+    '''Turn "data" dictionary into a SQL table fields description'''
+    return ', '.join(['%s %s' % (key, db_field_type(value))
+                      for key, value in data.items()])
+
+def db_dict_to_table(data, table):
+    with get_database() as database:
+        cursor = database.cursor()
+        cursor.execute('DROP TABLE IF EXISTS %s' % table)
+        cursor.execute('CREATE table %s (%s)'\
+                       % (table, db_dict_to_fields(data[0])))
+        for row in data:
+            req = 'INSERT INTO %s (%s) VALUES (%s)' \
+                % (table,
+                   ', '.join(row.keys()),
+                   ', '.join([str(value) for value in row.values()]))
+            cursor.execute(req)
 
 class NameServer:
     QUALIFIERS = ['sensor', 'service', 'task']
