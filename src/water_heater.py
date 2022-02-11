@@ -348,8 +348,7 @@ class WaterHeater(Task, Sensor):
         last priority adjustment, the function aborts.
 
         The priority is adjusted based on temperature and water availability
-        thresholds. If the desired temperature has been reached and the tank is
-        full, it sets the has_reached_target attribute to True.
+        thresholds.
 
         If the priority is not the highest and we have less time than estimated
         to reach the target, the priority is artificially increased by one
