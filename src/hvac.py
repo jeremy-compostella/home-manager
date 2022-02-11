@@ -239,10 +239,7 @@ class HVACTask(Task, Sensor):
 
     def adjust_priority(self):
         '''Adjust the priority based on the estimate run time.'''
-        run_time = self._estimate_runtime()
-        if run_time < self.min_run_time:
-            self.priority = min(Priority)
-            return
+        run_time = max(timedelta(seconds=1), self._estimate_runtime())
         count = (self.param.target_time - datetime.now()) / run_time
         priority_levels = max(Priority) - min(Priority) + 1
         if count > priority_levels or count < 0:
