@@ -183,7 +183,7 @@ class HVACTask(Task, Sensor):
             timedelta(seconds=self.settings.min_pause)
         if datetime.now() < runnable_at \
            or not self.hvac_mode \
-           or self._estimate_runtime() < self.min_run_time:
+           or self._deviation() * self.hvac_mode.value > 0:
             return False
         return True
 
