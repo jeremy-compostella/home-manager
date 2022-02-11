@@ -217,8 +217,7 @@ class HVACTask(Task, Sensor):
         if self.priority == Priority.URGENT:
             return True
         if self.is_running():
-            mode = self.hvac_mode
-            if self._deviation() * mode.value > 0:
+            if self._deviation() * self.hvac_mode.value > 0:
                 debug('Target has been reached')
                 return False
             if self._has_been_running_for() > self.min_run_time:
