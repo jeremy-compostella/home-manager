@@ -298,9 +298,12 @@ class WaterHeater(Task, Sensor):
         debug('meet_running_criteria(%.3f, %.3f)' % (ratio, power))
         duration = self.has_been_running_for()
         if duration > timedelta():
-            if self.available == 100 or duration >= timedelta(minutes=4):
+            if duration >= timedelta(minutes=3):
                 min_time = timedelta(seconds=30)
-                min_power = 1 / 2 * self.power
+                min_power = 3 / 4 * self.power
+            elif self.available == 100:
+                min_time = timedelta(seconds=30)
+                min_power = 0
             else:
                 min_time = timedelta(seconds=90)
                 min_power = 0
@@ -374,6 +377,7 @@ class WaterHeater(Task, Sensor):
                 debug('Close to the target time, increase the priority')
                 self.priority = Priority(self.priority + 1)
             return
+        self.priority = Priority.LOW
 
     def prevent_auto_start(self):
         '''Prevent automatic turn on.
