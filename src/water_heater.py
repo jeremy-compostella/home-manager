@@ -312,7 +312,7 @@ class WaterHeater(Task, Sensor):
                 if duration > timedelta(minutes=3):
                     delay *= 4
                 self._not_runnable_till = datetime.now() + delay
-                debug('Not using any enough power, make unrunnable till %s'
+                debug('Not using enough power, make unrunnable till %s'
                       % self._not_runnable_till)
                 return False
         # Accept to operate with any ratio if we are too close to the target
