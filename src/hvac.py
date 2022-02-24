@@ -47,6 +47,7 @@ import requests
 from cachetools import TTLCache
 from dateutil import parser
 from pyecobee import HoldType, Selection, SelectionType, Thermostat
+from scipy.interpolate import interp1d
 
 from models import HomeModel, HVACModel
 from monitor import MonitorProxy
@@ -96,11 +97,20 @@ class HVACTask(Task, Sensor):
         self.cache = TTLCache(5, timedelta(seconds=3), datetime.now)
         self.model = HVACModel()
 
-    def _deviation(self):
-        return self.indoor_temp - self.param.target_temp
+    def _deviation(self, target=False, comfort=False):
+        if target:
+            temp = self.param.target_temp
+        else:
+            temp = self.param.optimal_temp
+        if comfort:
+            if temp < self.settings.comfort_range[0]:
+                temp = self.settings.comfort_range[0]
+            if temp > self.settings.comfort_range[1]:
+                temp = self.settings.comfort_range[1]
+        return self.indoor_temp - temp
 
-    def _next_helpful_mode(self):
-        deviation = self._deviation()
+    def _next_helpful_mode(self, target=False, comfort=False):
+        deviation = self._deviation(target, comfort)
         if deviation == 0:
             return None
         for mode in [Mode.HEAT, Mode.COOL]:
@@ -110,11 +120,11 @@ class HVACTask(Task, Sensor):
                 return mode
         return None
 
-    def _estimate_runtime(self):
-        mode = self._next_helpful_mode()
+    def _estimate_runtime(self, target=False, comfort=False):
+        mode = self._next_helpful_mode(target, comfort)
         if not mode:
             return timedelta()
-        deviation = self._deviation()
+        deviation = self._deviation(target=target, comfort=comfort)
         rate = self.model.time(self.param.outdoor_temp)
         return rate * abs(deviation)
 
@@ -131,14 +141,15 @@ class HVACTask(Task, Sensor):
     @Pyro5.api.expose
     @Pyro5.api.oneway
     def start(self):
-        mode = self._next_helpful_mode()
+        mode = self._next_helpful_mode(comfort=True)
         if mode is None:
             debug('No mode to change the temperature')
             return
-        duration = self._estimate_runtime()
-        target = self.param.target_temp
+        duration = self._estimate_runtime(comfort=True)
+        target = self.param.optimal_temp
         target += mode.value * self.settings.temperature_offset
-        debug('Starting for %s' % duration)
+        debug('Starting for %s with thermostat set at %.1f°F'
+              % (duration, target))
         resp = self.__attempt('set_hold',
                               **{'hold_type': HoldType.HOLD_HOURS,
                                  'hold_hours': ceil(duration.seconds / 3600),
@@ -185,6 +196,12 @@ class HVACTask(Task, Sensor):
            or not self.hvac_mode \
            or self._deviation() * self.hvac_mode.value > 0:
             return False
+        if self.hvac_mode == Mode.HEAT \
+           and self.indoor_temp > self.settings.comfort_range[1]:
+            return False
+        if self.hvac_mode == Mode.COOL \
+           and self.indoor_temp < self.settings.comfort_range[0]:
+            return False
         return True
 
     def _is_on_hold(self):
@@ -217,7 +234,7 @@ class HVACTask(Task, Sensor):
         if self.priority == Priority.URGENT:
             return True
         if self.is_running():
-            if self._deviation() * self.hvac_mode.value > 0:
+            if self._deviation(comfort=True) * self.hvac_mode.value > 0:
                 debug('Target has been reached')
                 return False
             if self._has_been_running_for() > self.min_run_time:
@@ -225,6 +242,8 @@ class HVACTask(Task, Sensor):
                     and ratio >= min(1, .9 * self.param.max_available_power / power) \
                     and power > self.power * 1/3
             return True
+        debug('min ratio=%s'
+              % min(1, .95 * self.param.max_available_power / self.power))
         return ratio >= min(1, .95 * self.param.max_available_power / self.power)
 
     @Pyro5.api.expose
@@ -238,7 +257,11 @@ class HVACTask(Task, Sensor):
 
     def adjust_priority(self):
         '''Adjust the priority based on the estimate run time.'''
-        run_time = max(timedelta(seconds=1), self._estimate_runtime())
+        if datetime.now() > self.param.target_time:
+            self.priority = Priority.LOW
+            return
+        run_time = max(timedelta(seconds=1),
+                       self._estimate_runtime(target=True, comfort=True))
         count = (self.param.target_time - datetime.now()) / run_time
         priority_levels = max(Priority) - min(Priority) + 1
         if count > priority_levels or count < 0:
@@ -392,11 +415,22 @@ class HVACParam(threading.Thread):
         '''Last point in time when the system will produce enough power.'''
         with self._lock:
             return self._data['target_time']
+
+    def __get_temperature(self, time):
+        with self._lock:
+            return self._data['passive_curve'](time.timestamp()).item()
+
     @property
     def target_temp(self):
         '''Desired temperature at 'target_time'.'''
         with self._lock:
-            return self._data['target_temp']
+            time = self._data['target_time']
+        return self.__get_temperature(time)
+
+    @property
+    def optimal_temp(self):
+        '''Optimal temperature to be at the desired temperature at goal.'''
+        return self.__get_temperature(datetime.now())
 
     def _update_max_available_power(self):
         now = datetime.now()
@@ -429,67 +463,83 @@ class HVACParam(threading.Thread):
         except (RuntimeError, Pyro5.errors.PyroError):
             log_exception('Target time update failed', *sys.exc_info())
 
-    def _update_target_temperature(self):
-        if datetime.now() >= self.target_time:
-            return
-        goal_time = datetime.combine(self.target_time.date(),
-                                     self.settings.goal_time)
-        target_temp = self.settings.goal_temperature
-        try:
-            minutes = int((goal_time - self.target_time).total_seconds() / 60)
-            goal_temp = 0
-            while True:
-                goal_temp = target_temp
-                for minute in range(minutes):
-                    time = self.target_time + timedelta(minutes=minute)
-                    temp_at = self.weather.temperature_at(time)
-                    goal_temp += self.home_model.degree_per_minute(goal_temp,
-                                                                   temp_at)
-                debug('For %.3F target, goal would be %.3fF' % (target_temp,
-                                                                goal_temp))
-                if abs(self.settings.goal_temperature - goal_temp) < 0.1:
+    def _compute_passive_curve(self, start, end, end_temp, precision=0.1):
+        temperature = end_temp
+        minutes = int((end - start).total_seconds() / 60)
+        if minutes == 0:
+            raise RuntimeError('Not enough time to estimate')
+        start_temp = temperature
+        step = max_step = max(1, round(minutes / 20))
+        while True:
+            tmp = start_temp
+            curve_data = []
+            for minute in range(0, minutes, step):
+                if step == 1:
+                    curve_data.append(tmp)
+                time = start + timedelta(minutes=minute + step / 2)
+                temp_at = self.weather.temperature_at(time)
+                tmp += (step * self.home_model.degree_per_minute(tmp, temp_at))
+            debug('%d %.3F at %s should lead to %.3fF at %s'
+                  % (step, start_temp, start, tmp, end))
+            deviation = temperature - tmp
+            if abs(deviation) < precision:
+                if step == 1:
                     break
-                target_temp += self.settings.goal_temperature - goal_temp
+                step = 1
+            else:
+                step = max(1, min(max_step, floor(abs(deviation) * max_step)))
+            debug('+=%s' % (deviation * 2 / 3))
+            start_temp += deviation * 2 /3
 
-            with self._lock:
-                if target_temp > self.settings.comfort_range[1]:
-                    self._data['target_temp'] = self.settings.comfort_range[1]
-                elif target_temp < self.settings.comfort_range[0]:
-                    self._data['target_temp'] = self.settings.comfort_range[0]
-                else:
-                    self._data['target_temp'] = target_temp
-            debug('Target: %.3fF at %s' % (target_temp, self.target_time))
-        except (RuntimeError, Pyro5.errors.PyroError):
-            log_exception('Target temperature update failed', *sys.exc_info())
+        times = [(start + timedelta(minutes=x)).timestamp() \
+                 for x in range(0, minutes)]
+        with self._lock:
+            self._data['passive_curve'] = interp1d(times, curve_data,
+                                                   fill_value="extrapolate")
 
     def is_ready(self):
         '''Return true if all this object is ready to be used.'''
         return len(self._data) == 4
 
     def run(self):
-        while True:
-            try:
-                target_time = self.target_time
-            except KeyError:
-                target_time = datetime.min
-            if datetime.now() > target_time:
+        try:
+            while True:
                 try:
-                    self._update_max_available_power()
-                    self._update_target_time()
+                    target_time = self.target_time
+                except KeyError:
+                    target_time = datetime.min
+                goal_time = datetime.combine(target_time.date(),
+                                             self.settings.goal_time)
+                if datetime.now() > goal_time:
+                    try:
+                        self._update_max_available_power()
+                        self._update_target_time()
+                    except (RuntimeError, Pyro5.errors.PyroError):
+                        log_exception('Parameters update failed', *sys.exc_info())
+                try:
+                    temperature = self.weather.temperature
                 except (RuntimeError, Pyro5.errors.PyroError):
-                    log_exception('Parameters update failed', *sys.exc_info())
-            try:
-                temperature = self.weather.temperature
-            except (RuntimeError, Pyro5.errors.PyroError):
-                log_exception('Temperature update failed', *sys.exc_info())
-            with self._lock:
-                self._data['outdoor_temp'] = temperature
-            try:
-                self._update_target_temperature()
-            except (RuntimeError, Pyro5.errors.PyroError):
-                log_exception('Uncaught exception in run()',  *sys.exc_info())
-                debug(''.join(Pyro5.errors.get_pyro_traceback()))
-            sleep(60)
+                    log_exception('Temperature update failed', *sys.exc_info())
+                with self._lock:
+                    self._data['outdoor_temp'] = temperature
+                try:
+                    goal_time = datetime.combine(self.target_time.date(),
+                                                 self.settings.goal_time)
+                    self._compute_passive_curve(datetime.now(), goal_time,
+                                                self.settings.goal_temperature)
+                    if datetime.now() < self.target_time:
+                        debug('At Target Time (%s): %s'
+                              % (self.target_time,
+                                 self._data['passive_curve'](self.target_time.timestamp())))
+                    debug('Now: %s'
+                          % self._data['passive_curve'](datetime.now().timestamp()))
+                except (RuntimeError, Pyro5.errors.PyroError):
+                    log_exception('Uncaught exception in run()',  *sys.exc_info())
+                    debug(''.join(Pyro5.errors.get_pyro_traceback()))
+                sleep(10 * 60)
+        except Exception:
+            log_exception('Uncaught exception in run()',  *sys.exc_info())
+            debug(''.join(Pyro5.errors.get_pyro_traceback()))
 
 def my_excepthook(etype, value=None, traceback=None):
     '''On uncaught exception, log the exception and kill the process.'''
