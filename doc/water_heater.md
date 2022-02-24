@@ -199,7 +199,8 @@ water heater should be started or stopped.
 
 - If the water heater has been running for a little while and suddenly
   stop using power, we consider it the tank is full, the water fully
-  heated and make the task not runnable for four times 'no_power_delay'.
+  heated and make the task not runnable for four times
+  'no_power_delay'.
 
 <a id="water_heater.WaterHeater.desc"></a>
 
@@ -227,8 +228,7 @@ If the temperature and the water availability has not changed since the
 last priority adjustment, the function aborts.
 
 The priority is adjusted based on temperature and water availability
-thresholds. If the desired temperature has been reached and the tank is
-full, it sets the has_reached_target attribute to True.
+thresholds.
 
 If the priority is not the highest and we have less time than estimated
 to reach the target, the priority is artificially increased by one

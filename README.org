@@ -50,9 +50,7 @@
 
   print(monthly_data())
 #+end_src
-
 #+RESULTS: monthly-data
-
 #+name: usage-share
 #+begin_src python :session :exports none :results value :var data=monthly-data devices="ev,hvac,water_heater"
   data = eval(data)
@@ -62,18 +60,12 @@
 		for record in data)
   '%d%%' % round(100 * devices / total)
 #+end_src
+* Introduction
+This project is a *Solar power usage optimization system for residential home*. It is a set of software components and services scheduling and optimizing devices of a residential home to optimally use solar generated power.
 
-This project is about *Solar power usage optimization in a residential home*. It is a set of software components and services scheduling and optimizing devices in the a residential to make the best use of solar generated power.
+Back in May 2021, I installed solar panels on my roof. As a software engineer concerned by the global warming I decided to develop an optimization system to reduce my carbon footprint. As I would like this project to benefit other and to keep it growing I decided to share it publicly.
 
-Back in May 2021, I installed solar panel on my roof. As a software engineer concerned by the global warming I decided to develop an optimization system to reduce my carbon footprint. As I would like this project to benefit other and to keep growing I decided to share it publicly.
-
-Optimizing means a good understanding of what to optimize. I spent some time online and I started collecting data from my electrical panel by installing sensors. I quickly to identified the following four targets (in order of priority):
-1. The electric car
-2. The HVAC (Heating, Ventilation, and Air Conditioning),
-3. The water heater
-4. The pool pump
-
-*Note*: As of today, the system covers the first three as I still need to find the right switch to control the pool pump.
+Optimizing means having good understanding of what to optimize. In this particular case, it means which devices or appliances. I started collecting data from my electrical panel by installing sensors and within a few weeks I was able to identify the most energy-intensive devices.
 
 #+begin_src python :session: :results file :exports results :var data=monthly-data
   import matplotlib.pyplot as plt
@@ -102,20 +94,26 @@ Optimizing means a good understanding of what to optimize. I spent some time onl
   plt.savefig(fname)
   return fname
 #+end_src
-
 #+RESULTS:
 [[file:doc/images/yearly_energy_consumption_distribution.svg]]
 
-An optimization system also requires performance metrics.  My motivation being environmental and knowing that the utility companies of my city are mostly producing electricity out of fossil energies, I decided to measure the performance as the ratio of energy used from the solar panel over the total energy used. It means that the goal of the system is to fit as much as possible the home electricity needs in the time frame the solar panels are producing.
+I decided to focus on the following four devices (in order of priority):
+1. The electric car charger
+2. The HVAC (Heating, Ventilation, and Air Conditioning)
+3. The water heater
+4. The pool pump
 
-I have set up two targets:
+*Note*: As of today, the system covers the first three as I still need to spend the necessary time to find the ideal switch to control the pool pump.
+
+An optimization system also requires metrics.  My motivation being environmental and knowing that the utility companies of my city are mostly producing electricity out of fossil energies, I decided to measure the performance of the system as the ratio of energy used from the solar panel over the total energy used. It means that the objective of the system is to fit as much as possible the home electricity needs in the time frame the solar panels are producing.
+
+I have defined two measurable goals:
 1. The electric car should be charged at 100% with solar produced energy
 2. The home energy consumption (including the car charger) must be covered at more than 65% by the solar energy
 
-As of today, between call_db-first-month() {{{results(=June 2021=)}}} and call_db-last-month() {{{results(=February 2022=)}}}, the entire home energy consumption has been covered by solar energy at call_powered-by-solar() {{{results(=63%=)}}}.
+As of today, between call_db-first-month() {{{results(=June 2021=)}}} and call_db-last-month() {{{results(=February 2022=)}}}, the entire home energy consumption has been covered by solar energy at call_powered-by-solar() {{{results(=64%=)}}}.
 
-The following diagram represents the distribution of the energy consumption of my home per month since I started this project. It also include the per-month ratio of energy used which originated from the solar panels.
-
+The following diagram represents the distribution of the energy consumption of my home per month since I started this project. It also includes the per-month ratio of energy used which originated from the solar panels (in light blue).
 #+begin_src python :session: :results file :exports results :var data=monthly-data
   import matplotlib.pyplot as plt
   import numpy as np
@@ -131,7 +129,7 @@ The following diagram represents the distribution of the energy consumption of m
   data = eval(data)
   width = 0.35
   fig, ax = plt.subplots()
-  fig.set_size_inches(11.75, 5.79)
+  plt.gcf().set_size_inches(10, 4.93)
 
   x = np.arange(len(data))
   ax.bar(x - width/2,
@@ -174,115 +172,302 @@ The following diagram represents the distribution of the energy consumption of m
   plt.savefig(fname)
   return fname
 #+end_src
-
 #+RESULTS:
 [[file:doc/images/energy_consumption_distribution.svg]]
-
 #+name: powered-by-solar
 #+begin_src python :session :exports none :results value :var data=monthly-data
   data = eval(data)
   '%d%%' % round((1 - (sum([record['from_grid'] for record in data]) /
        sum([total(record) for record in data]))) * 100)
 #+end_src
-
 #+name: db-first-month
 #+begin_src python :session :exports none :results value :var data=monthly-data
   data = eval(data)
   data[0]['title'].replace('\n', ' ')
 #+end_src
-
 #+name: db-last-month
 #+begin_src python :session :exports none :results value :var data=monthly-data
   data = eval(data)
   data[-1]['title'].replace('\n', ' ')
 #+end_src
-
-The implementation relies on various modules providing services such as weather forecast, instant power consumption records, solar power prediction, home thermal model, appliances controls and a scheduler. In a modest way, this is learning system. Indeed, it collects data and uses this data to generate models which influence the system decisions.
+* Implementation
+The system is split into various python modules running on a Raspberry Pi4. They provide services such as weather forecast, instant power consumption records, solar power prediction, home thermal model, HVAC performance model, appliances controls and a scheduler. In a modest way, this is also learning system. Indeed, it collects data and uses this data to generate models which influence the system decisions.
 
 This project also includes some basic Home Assistant integration to ease the monitoring and control of the system as seen in the following screen capture.
 
 [[./doc/images/scheduler_at_work.png]]
 
-The software architecture is based on well separated python modules running in dedicated processes. Each module implements defined interfaces such as [[file:doc/sensor.md#sensor-objects][Sensor]] or [[file:doc/scheduler.md#task-objects][Task]]. Alternatively or in addition, a module can expose its a original Service interface. The inter-processes communication is provided by the [[https://pypi.org/project/Pyro5/][pyro5]] remote objects communication library. Each service, sensor or task is registered to the pyro5 nameserver under the ~home-manager~ namespace.  The services are under the ~home-manager.service~ sub-namespace, the sensors under the ~home-manager.sensor~ sub-namespace and the tasks are under the ~home-manager.task~ sub-namespace. For instance, the task responsible of the HVAC system is implemented by the [[./src/hvac.py][hvac]] module and registered as ~home-manager.task.hvac~ to the nameserver.
+Each module runs in a dedicated process and implements specified interfaces such as [[file:doc/sensor.md#sensor-objects][Sensor]] or [[file:doc/scheduler.md#task-objects][Task]]. Alternatively or in addition, a module can expose its own original Service interface. The inter-processes communication relies on the [[https://pypi.org/project/Pyro5/][pyro5]] remote objects communication library. Each service, sensor or task is registered to the pyro5 nameserver under the ~home-manager~ namespace.  The services are under the ~home-manager.service~ sub-namespace, the sensors under the ~home-manager.sensor~ sub-namespace and the tasks are under the ~home-manager.task~ sub-namespace. For instance, the task responsible of the HVAC system is implemented by the [[./src/hvac.py][hvac]] module and registered as ~home-manager.task.hvac~ to the nameserver.
+** Sensors
+[[file:doc/sensor.md#sensor-objects][Sensor]] modules represent the sensor information of a device such the temperature and the humidity for a regular weather station.
+*** Car sensor
+The [[./doc/car_sensor.md][car_sensor]] (~home_manager.sensor.car~) module provides electric car information such as the current state of charge and mileage.
+*** Power sensor
+The [[./doc/power_sensor.md][power_sensor]] (~home_manager.sensor.power~) module provides instantaneous power consumption and power production readings. It also provides power reading over a certain period of time such as one minute, one hour or one day. This sensor is used by the [[./doc/scheduler.md][scheduler]] to build power consumption statistics leading to task scheduling decisions. Some tasks such as the [[./doc/car_charger.md][car_charger]] also uses this sensor.
+*** Power simulator sensor
+The [[./doc/power_simulator.md][power_simulator]] (~home_manager.{sensor,service}.power_simulator~) module represents the solar panels configuration I have on my roof. Using the [[https://pvlib-python.readthedocs.io/en/stable/][pvlib]] library it is able to predict power production.
 
-The following diagram represents the most important dependencies between the principal modules.
+Similarly to [[./doc/power_sensor.md][power_sensor]] the sensor part of this module provides instantaneous power consumption and production readings except that the production reading are based on a solar panel model and the consumption reading are based on current the tasks status.  [[./doc/power_simulator.md][power_simulator]] also acts as fail-safe power sensor if [[./doc/power_sensor.md][power_sensor]] is failing.
+The service part of this module provides properties and functions such as:
+- The [[./doc/power_simulator.md#max_available_power][max_available_power]] property is the maximum instantaneous power in kW the solar panels are expected to deliver from now to the end of daytime.
+- The [[./doc/power_simulator.md#next_power_window][next_power_window(power)]] function returns the next time frame when ~power~ kW would be available on a clear and sunny day. This information is beneficial to tasks needing to know until when they can expect to get enough power to run.
+*** Weather sensor
+The [[./doc/weather.md][weather]] (~home_manager.{sensor,service}.weather~) module provides instantaneous weather information such as temperature or wind speed. It also provides weather forecast service with special methods to get data such as the foretasted temperature at the certain point in time. The forecast service is critical to several modules. Solar panels production performances depend on multiple factors and in particular the temperature, wind speed and wind orientation. Therefor, the [[./doc/power_simulator.md][power_simulator]] uses the weather forecast service to compute an accurate PV panels productions estimation.
+** Scheduler
+The central piece of the system is the [[./doc/scheduler.md][scheduler]]. The [[./doc/scheduler.md][scheduler]] is responsible of optimally schedule registered tasks depending on priority level, power needs, task specific running criteria and of course, power availability. The scheduler module evaluates the situation and makes new decision every minutes.
 
-#+begin_src dot :file doc/images/programs-communication.svg :exports results
-  digraph {
-          node [shape=box];
-          "car_charger" -> "scheduler"
-          "car_charger" -> "power_sensor"
-          "car_charger" -> "power_simulator"
-          "car_charger" -> "car_sensor"
+The module keeps track of the power consumption with a sliding window of power records. It uses this data to determine the ratio of the energy a particular device has used compared to what the photovoltaic system has been producing. This ratio represents how much of the energy used by a particular appliance has been covered by the photovoltaic production over the time of the sliding window. This information is supplied to tasks along with their current power consumption when the scheduler is asking a task the current power conditions are acceptable to start the task or keep it running if it is already started.
 
-          "hvac" -> "scheduler"
-          "hvac" -> "power_simulator"
-          "hvac" -> "weather"
+The following power consumption diagram shows the scheduler starting and stopping task depending on the task specific parameters and the solar panels power production over an full day.
 
-          "power_simulator" -> "power_sensor"
-          "power_simulator" -> "weather"
+#+begin_src python :session: :results file :exports results :dir ./src
+  from matplotlib.dates import DateFormatter
 
-          "scheduler" -> "power_sensor"
-          "scheduler" -> "power_simulator"
+  from dateutil import parser
 
-          "water_heater" -> "scheduler"
-  }
+  import matplotlib.pyplot as plt
+  from tools import get_database, db_dict_factory
+
+  DATE_STR = '2022-01-16'
+  START_TIME_STR=DATE_STR + ' 00:00:00'
+  START_TIME=parser.parse(START_TIME_STR)
+  END_TIME_STR=DATE_STR + ' 23:59:00'
+  END_TIME=parser.parse(END_TIME_STR)
+
+  def load_from_db(table, where):
+      with get_database() as database:
+	  database.row_factory = db_dict_factory
+	  req = 'SELECT * FROM %s %s ORDER BY timestamp' % (table, where)
+	  cursor = database.cursor()
+	  cursor.execute(req)
+	  return cursor.fetchall()
+
+  CONSUMERS={'Pool': ['pool'],
+	     'Water heater': ['water_heater'],
+	     'HVAC': ['a_c', 'air_handler'],
+	     'Kitchen range': ['range'],
+	     'Car': ['ev'],
+	     'Dryer': ['dryer']}
+
+  where = 'WHERE timestamp > \'' + START_TIME_STR + \
+      '\' and timestamp < \'' + END_TIME_STR + '\''
+  val = load_from_db('power', where)
+  for cur in val:
+      cur['timestamp'] = parser.parse(cur['timestamp'])
+  fig, axes = plt.subplots()
+  axes.stackplot([x['timestamp'] for x in val],
+	       [ x - y for (x, y) in zip([x['net'] for x in val],
+					 [x['solar'] for x in val])],
+	       labels=["Other"],
+	       colors=['lightgrey', "tab:blue", "gold", "tab:cyan",
+		       "tab:red", "tab:green", "tab:orange"])
+  axes.stackplot([x['timestamp'] for x in val],
+	       [[sum([x[key] for key in keys]) for x in val] \
+		for name, keys in CONSUMERS.items()],
+	       labels=CONSUMERS.keys())
+  axes.plot([x['timestamp'] for x in val],
+	  [abs(x['solar']) for x in val], color='black',
+	  label='Solar Panels power', lw=.8)
+  axes.legend(loc='best')
+  plt.grid(which='major', linestyle='dotted')
+  axes.set(xlabel="Time",
+	 ylabel="Power (KW)")
+  plt.gca().set_title('Power consumption on %s'
+		      % START_TIME.strftime('%B %-d %Y'))
+  date_form = DateFormatter("%H:%M")
+  plt.gca().xaxis.set_major_formatter(date_form)
+  plt.tight_layout()
+  fig.set_size_inches(10, 4.93)
+  fname = '../doc/images/system_at_work.svg'
+  plt.tight_layout()
+  figure = plt.gcf()
+  plt.savefig(fname)
+  return fname
 #+end_src
 
 #+RESULTS:
-[[file:doc/images/programs-communication.svg]]
+[[file:doc/images/system_at_work.svg]]
 
-_The main sensors are_:
-1. The [[./doc/power_sensor.md][power_sensor]] (~home_manager.sensor.power~) module provides instantaneous power consumption and power production readings. It also provides power reading over a certain period of time such as one minute, one hour or one day. This sensor is used by the [[./doc/scheduler.md][scheduler]] to build power consumption statistics leading to task scheduling decisions. Some task such as the [[./doc/car_charger.md][car_charger]] also uses this sensor.
-2. The [[./doc/power_simulator.md][power_simulator]] (~home_manager.sensor.power_simulator~ and ~home_manager.sensor.power_simulator~) module implements the solar panel model of my installation using the python [[https://pvlib-python.readthedocs.io/en/stable/][pvlib]] library.
-   - Similarly to [[./doc/power_sensor.md][power_sensor]] the sensor part of this module provides instantaneous power consumption and production readings except that the production reading are based on a solar panel model and the consumption reading are based on current the tasks status. This [[./doc/power_simulator.md][power_simulator]] is used as an alternative if [[./doc/power_sensor.md][power_sensor]] is failing by the [[./doc/scheduler.md][scheduler]] and the [[./doc/car_charger.md][car_charger]].
-   - The service part of this module provides properties and functions such as:
-     - the [[./doc/power_simulator.md#max_available_power][max_available_power]] property which is the maximum instantaneous power in kW the solar panels are expected to deliver from now to the end of daytime
-     - the [[./doc/power_simulator.md#next_power_window][next_power_window(power)]] function which returns the next time frame when ~power~ kW would be available on a perfectly sunny day. This information is useful to tasks which need to know until when they can expect to get enough power to run.
-3. The [[./doc/weather.md][weather]] (~home_manager.sensor.weather~ and ~home_manager.service.weather~) module provides instantaneous weather information such as temperature or wind speed as a [[file:doc/sensor.md#sensor-objects][Sensor]] object. It also provides weather forecast service with methods to get data such as the temperature at the certain point in time. The forecast service is important to multiple modules. For instance, a solar panel production performance depends on multiple factors and in particular the temperature thus the [[./doc/power_simulator.md][power_simulator]] uses the weather forecast service to compute an accurate PV panels productions estimation.
-4. The [[./doc/car_sensor.md][car_sensor]] (~home_manager.sensor.car~) module provides information such as the car current state of charge and mileage.
+** Tasks and models
+A [[./doc/scheduler.md#task-objects][Task]] is a module which registered itself to the scheduler to be run based on various parameters such as power ratio, priority ...etc Task are responsible of updating their priority level, implementing start and stop method, declaring if they can be run or stopped ...etc 
+*** Car charger task
+The [[./doc/car_charger.md][car_charger]] task (~home_manager.task.car_charger~) is responsible of charging the Electric Vehicle. It uses a simple strategy: the priority is set depending on the car battery current state of charge, the lower the state of charge the higher the priority. When this task is running, it automatically adjusts the charging rate to maximize the use of the solar panels production without exceeding it.
+*** Water heater task
+The [[./doc/water_heater.md][water_heater]] task (~home_manager.task.water_heater~) is responsible of heating the water tank. In opposition to the car which has a large enough capacity to be able to skip a couple of days of charge the water heater has to run every single day regardless of the photovoltaic production. Therefor the strategy is a little bit more complex: the task priority is set based on the water tank level and temperature but also on how close to the target time we are.
 
-The central piece of the system is the [[./doc/scheduler.md][scheduler]]. The [[./doc/scheduler.md][scheduler]] is responsible of optimally schedule registered tasks depending on their priority level, their power needs, some task specific running criteria and of course, power availability. The scheduler module evaluates the situation and makes new decision every minutes. It computes power consumption statistics with a sliding window of power records and uses this data to determine the ratio of the energy a particular appliance has been consuming compared to what the photovoltaic system has been producing. This ratio represents how much of the energy used by a particular appliance has been covered by the photovoltaic production. This ratio is provided to each tasks which are responsible to let the scheduler know if this ratio would be good enough to start the task or keep it running if it is already started.
+The target time is defined as the last point in time of the day when the photovoltaic system theoretically produces enough power to cover 100% of the water heater needs. In addition to that, if the priority is the highest possible and we are close to the target time, the water heater reports that it meets its running criteria regardless of the current consumption/production ratio. That way the [[./doc/water_heater.md][water_heater]] task is guaranteed to be scheduled and meet its daily goal even under poor weather condition.
 
-The project provides multiple tasks:
-1. The [[./doc/car_charger.md][car_charger]] task is responsible of charging the Electric Vehicle. It uses a simple strategy: the priority is set depending on the car current state of charge, the lower the state of charge the higher the priority. When this task is started, it automatically adjusts the charging rate depending on the power availability and it does so multiple times a minute.
-2. The [[./doc/water_heater.md][water_heater]] task is responsible of heating the water tank. In opposition to the car which has a large enough capacity to be able to skip a couple of days of charge the water heater has to run every single day regardless of the photovoltaic production. Therefor the strategy is a little bit more complex: the task priority is set based on the water tank level and temperature but also on how close we are of the target time. The target time is defined as the last point in time of the day when the photovoltaic system theoretically produces enough power to cover 100% of the water heater needs. In addition to that, if the priority is the highest possible and we are close to the target time, the water heater reports that it meets its running criteria regardless of the current consumption/production ratio. That way the [[./doc/water_heater.md][water_heater]] task is guaranteed to be scheduled and meet its daily goal.
-3. The [[./doc/hvac.md][hvac]] task is responsible of heating and cooling the home during daylight. At night, the regular thermostat schedule resumes. In my home the HVAC system clearly is the appliance consuming the most energy and this is why the HVAC optimization is critical.
-Similarly to the [[./doc/water_heater.md][water_heater]] task a target time is determined thanks to the [[./doc/power_simulator.md][power_simulator]]. However, the algorithm determining the target time is slightly more complex because the HVAC system power consumption varies when the outdoor temperature changes and under high temperature or low temperature, the HVAC system needs more power than what the photovoltaic system can produce. In order to calculate the target time, the hvac task uses a performance model of the HVAC system automatically of the recorded data. The following diagram is a representation of the HVAC performance model. For a certain range of outdoor temperatures, the blue line represents the power used by the HVAC system and the orange line the number of minutes needed to change the temperature by one degree Fahrenheit.
-   #+ATTR_MD: :style margin-left: auto; margin-right: auto;
-   #+begin_src python :session: :results file :exports results :dir ./src
-     import matplotlib.pyplot as plt
-     from models import HVACModel
+The water heater sensors are not very accurate especially the temperature sensor. As a result, the [[./doc/water_heater.md][water_heater]] strategy is to wait for the water heater to not use any power to decide that it is full and at desired temperature.
+*** HVAC task
+The [[./doc/hvac.md][hvac]] task (~home_manager.task.hvac~)  is responsible of heating and cooling the home during daylight. At night, the regular thermostat schedule resumes.
 
-     HVACModel().plot()
+In my home the HVAC system clearly is the appliance consuming the most energy and this is why the HVAC optimization is critical.
 
-     plt.grid(visible=True, which='both', axis='both', linestyle='dotted')
-     fname = '../doc/images/hvac_model.svg'
-     plt.tight_layout()
-     figure = plt.gcf()
-     figure.set_size_inches(10, 4.93)
-     plt.savefig(fname)
-     return fname
-   #+end_src
+Similarly to the [[./doc/water_heater.md][water_heater]] task the target time is determined to automatically increase the priority as we gets closer to the last point in time the solar panels produce enough power to the HVAC needs. However, the algorithm determining the target time is slightly more complex because the HVAC system power consumption can significantly varies with the outdoor temperature (by \approx 20%). In addition, under high temperature or low temperature, the HVAC system needs more power than what the photovoltaic system can produce. In order to calculate the target time, the hvac task uses a performance model of the HVAC system which is automatically created by processing the database (see [[./doc/models.md][models]]). The following diagram is a representation of the HVAC performance model. For a certain range of outdoor temperatures, the blue line represents the power used by the HVAC system and the orange line the number of minutes needed to change the temperature by one degree Fahrenheit.
+#+ATTR_MD: :style margin-left: auto; margin-right: auto;
+#+begin_src python :session: :results file :exports results :dir ./src
+  import matplotlib.pyplot as plt
+  from models import HVACModel
 
-   #+RESULTS:
-   [[file:doc/images/hvac_model.svg]]
+  HVACModel().plot()
 
-    One the hvac module has determined a target time it has to decide of a target temperature. The target temperature is defined as the temperature to be at target time so that at a later specified time the home would be at a desired temperature. For instance, if the desire is to have a temperature of 73°F at 10:30pm, the [[./doc/hvac.md][hvac]] task computes what the temperature should be at target time taking into account the expected temperature change of the home between the target time and 10:30pm. This computation relies on a two dimensional home thermal model which is computed by processing the data captured on daily basis. The following figure is a representation of the thermal model of my home.
+  plt.grid(visible=True, which='both', axis='both', linestyle='dotted')
+  fname = '../doc/images/hvac_model.svg'
+  plt.tight_layout()
+  figure = plt.gcf()
+  figure.set_size_inches(10, 4.93)
+  plt.savefig(fname)
+  return fname
+#+end_src
+#+RESULTS:
+[[file:doc/images/hvac_model.svg]]
+Once the hvac module has determined a target time, it automatically computes the passive thermal curve. The passive thermal curve is the temperature to be at each instant between now and goal time so that the temperature at goal time is goal temperature. For instance, in the following diagram, the goal time is 10:30pm and the goal temperature of  73°F. The passive thermal curve is the prediction represented in green. That day, the system ran the HVAC system three times (depending on priority and power availability) so that the indoor temperature crossed the passive curve at 2:36pm. At this point,  and taking into account the home thermal loss, at 10:30pm the home temperature was 73° as expected. In my area and for most of winter, it means that I do not need to run the HVAC at night while enjoying a comfortable temperature most of the time.
 
-   #+begin_src python :session: :results file :exports results :dir ./src :eval no-export
-     import matplotlib.pyplot as plt
-     from models import HomeModel
+#+begin_src python :session: :results file :exports results :dir ./src
+  from datetime import timedelta
+  from math import ceil, floor
 
-     HomeModel().plot()
+  import matplotlib.pyplot as plt
+  import numpy as np
+  from dateutil import parser
+  from matplotlib.dates import DateFormatter
+  from scipy.interpolate import interp1d
 
-     fname = '../doc/images/home_model.png'
-     plt.tight_layout()
-     figure = plt.gcf()
-     figure.set_size_inches(10, 4.93)
-     plt.savefig(fname)
-     return fname
-   #+end_src
+  from models import HomeModel
+  from tools import db_dict_factory, get_database
 
-   #+RESULTS:
-   [[file:doc/images/home_model.png]]
+  DATE_STR = '2022-02-17'
+  START_TIME_STR=DATE_STR + ' 10:00:00'
+  START_TIME=parser.parse(START_TIME_STR)
+  END_TIME_STR=DATE_STR + ' 22:30:00'
+  END_TIME=parser.parse(END_TIME_STR)
+  GOAL_TEMP = 73
+
+  def load_from_db(table, where):
+	 with get_database() as database:
+	     database.row_factory = db_dict_factory
+	     req = 'SELECT * FROM %s %s ORDER BY timestamp' % (table, where)
+	     cursor = database.cursor()
+	     cursor.execute(req)
+	     return cursor.fetchall()
+
+  def time_to_minute(time):
+	 return (parser.parse(time) - parser.parse(START_TIME_STR)).seconds / 60
+
+  def build_passive_curve(model, start, end, end_temp, outdoor, precision=0.1):
+	 temperature = end_temp
+	 minutes = int((end - start).total_seconds() / 60)
+	 if minutes == 0:
+	     raise RuntimeError('Not enough time to estimate')
+	 start_temp = temperature
+	 step = max_step = round(minutes / 20)
+	 while True:
+	     tmp = start_temp
+	     curve_data = []
+	     for minute in range(0, minutes, step):
+		 if step == 1:
+		     curve_data.append(tmp)
+		 temp_at = outdoor(minute)
+		 tmp += (step * model.degree_per_minute(tmp, temp_at))
+	     deviation = temperature - tmp
+	     if abs(deviation) < precision:
+		 if step == 1:
+		     break
+		 step = 1
+	     else:
+		 step = max(1, min(max_step, floor(abs(deviation) * max_step)))
+	     start_temp += deviation * 2 /3
+
+	 times = [start + timedelta(minutes=x) for x in range(0, minutes)]
+	 return times, curve_data
+
+  def load_corrections(where):
+	 power = load_from_db('power', where)
+	 corrections = []
+	 in_correction = False
+	 current = {}
+	 for usage in power:
+	     hvac_power = usage['a_c'] + usage['air_handler']
+	     if in_correction and hvac_power < 0.3:
+		 current['end'] = parser.parse(usage['timestamp'])
+		 corrections.append(current)
+		 in_correction = False
+	     elif not in_correction and hvac_power >= 4.5:
+		 in_correction = True
+		 current = {'start': parser.parse(usage['timestamp'])
+				     - timedelta(minutes=1)}
+	 return corrections
+  print('ici')
+  where = 'WHERE timestamp > \'' + START_TIME_STR + \
+	 '\' and timestamp < \'' + END_TIME_STR + '\''
+  weather = load_from_db('weather', where)
+  plt.plot([parser.parse(item['timestamp']) for item in weather],
+	      [item['temperature'] for item in weather],
+	      label='Outdoor temperature')
+
+  hvac = load_from_db('hvac', where)
+  plt.plot([parser.parse(item['timestamp']) for item in hvac],
+	      [item['home'] for item in hvac], label='Home temperature')
+
+  outdoor_temp = interp1d([time_to_minute(current['timestamp']) \
+			      for current in weather],
+			     [current['temperature'] \
+			      for current in weather], fill_value='extrapolate')
+  model = HomeModel()
+  times, passive_curve = build_passive_curve(model, START_TIME, END_TIME,
+						GOAL_TEMP, outdoor_temp)
+  plt.plot(times, passive_curve,
+	      '--', color='green',
+	      label='Passive temperature curve')
+  corrections = load_corrections(where)
+  for i, correction in enumerate(corrections):
+	 plt.axvspan(correction['start'], correction['end'], facecolor='pink',
+		     label=i*'_' + 'The system is adjusting indoor temperature using the HVAC')
+
+  date_form = DateFormatter("%H:%M")
+  plt.gca().set(xlabel='Time', ylabel='°F')
+  plt.gcf().set_size_inches(10, 4.93)
+  plt.gca().set_title('Automatic adjustment of the home temperature on %s' % START_TIME.strftime('%B %-d %Y'))
+  plt.gca().xaxis.set_major_formatter(date_form)
+  plt.gca().yaxis.tick_right()
+  plt.gca().tick_params(left=True, labelleft=True,
+			   labelright=True, right=True)
+  plt.gca().legend(loc='best')
+  plt.grid(which='major', linestyle='dotted')
+  min_temp = floor(min(min([x['home'] for x in hvac]),
+			  min([x['temperature'] for x in weather]),
+			  min(passive_curve))) - 1
+  max_temp = ceil(max(max([x['home'] for x in hvac]),
+			 max([x['temperature'] for x in weather]),
+			 max(passive_curve))) + 1
+  if min_temp % 2 == 0 and GOAL_TEMP % 2 != 0:
+	 min_temp -= 1
+  plt.gca().set_yticks(np.arange(min_temp, max_temp, step=2))
+  plt.xlim(START_TIME, END_TIME)
+  plt.gcf().tight_layout()
+  fname = '../doc/images/hvac_automatic_adjustment_example.svg'
+  plt.tight_layout()
+  figure = plt.gcf()
+  plt.savefig(fname)
+  return fname
+#+end_src
+#+RESULTS:
+[[file:doc/images/hvac_automatic_adjustment_example.svg]]
+
+The algorithm which compute the passive curve uses a three dimensional home thermal model which is computed by processing recorded data (see [[./doc/models.md][models]]). For a given indoor and outdoor temperature, a thermal loss value is associated. The thermal loss unit in this model is degree Fahrenheit per minute. The following figure is a representation of this model.
+
+#+begin_src python :session: :results file :exports results :dir ./src :eval no-export
+  import matplotlib.pyplot as plt
+  from models import HomeModel
+
+  HomeModel().plot()
+
+  fname = '../doc/images/home_model.png'
+  plt.tight_layout()
+  figure = plt.gcf()
+  figure.set_size_inches(10, 4.93)
+  plt.savefig(fname)
+  return fname
+#+end_src
+#+RESULTS:
+[[file:doc/images/home_model.png]]

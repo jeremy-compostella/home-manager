@@ -126,15 +126,15 @@ def desc()
 
 List processes formatted as string.
 
-<a id="watchdog.Watchdog.sanitize"></a>
+<a id="watchdog.Watchdog.monitor"></a>
 
-#### sanitize
+#### monitor
 
 ```python
-def sanitize() -> None
+def monitor() -> None
 ```
 
-Verify that all the monitored processes are alive.
+Verify the monitored processes and report status to the monitor.
 
 If any process is missing, it is automatically removed from the list of
 registered processes.

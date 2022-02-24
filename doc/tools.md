@@ -67,3 +67,23 @@ def get_database()
 
 Return a SQLite object for persistent data storage.
 
+<a id="tools.db_field_type"></a>
+
+#### db\_field\_type
+
+```python
+def db_field_type(value)
+```
+
+Return the SQL type of "value"
+
+<a id="tools.db_dict_to_fields"></a>
+
+#### db\_dict\_to\_fields
+
+```python
+def db_dict_to_fields(data)
+```
+
+Turn "data" dictionary into a SQL table fields description
+
