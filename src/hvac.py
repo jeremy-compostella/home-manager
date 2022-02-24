@@ -63,7 +63,8 @@ DEFAULT_SETTINGS = {'min_run_time': 60 * 7,
                     'temperature_offset': 2,
                     'goal_time': dtime(hour=22, minute=30),
                     'goal_temperature': 73,
-                    'comfort_range': [71, 78],
+                    'comfort_range': [71, 78], # TODO: get this from Ecobee
+                                               # settings
                     'power_sensor_keys': ['A/C', 'air handler'],
                     'temperature_sensor': 'Home'}
 
