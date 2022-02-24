@@ -303,8 +303,11 @@ class HVACTask(Task, Sensor):
         for _ in range(2):
             try:
                 return getattr(self.ecobee, method)(*args, **kwargs)
-            except pyecobee.exceptions.EcobeeApiException:
-                self.ecobee.refresh_tokens()
+            except pyecobee.exceptions.EcobeeApiException as err:
+                if err.status_code == 14:
+                    self.ecobee.refresh_tokens()
+                else:
+                    log_exception('Unexpected exception', *sys.exc_info())
             except requests.exceptions.RequestException:
                 log_exception('Communication with the server failed',
                               *sys.exc_info())
