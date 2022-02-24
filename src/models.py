@@ -26,6 +26,8 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 # OF THE POSSIBILITY OF SUCH DAMAGE.
 
+'''Process the database and generate models like the HVAC performance model.'''
+
 import argparse
 from datetime import timedelta
 from statistics import mean, median
@@ -83,7 +85,7 @@ class DataPoint:
             return before[field]
         zero = parse_time(before['timestamp'])
         fun = interp1d([0, (parse_time(after['timestamp']) - zero).seconds],
-                       [before[field], after[field]],fill_value="extrapolate")
+                       [before[field], after[field]], fill_value="extrapolate")
         return fun((time - zero).seconds).item()
 
     def outdoor(self):
