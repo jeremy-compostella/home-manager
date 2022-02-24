@@ -68,7 +68,7 @@ DEFAULT_SETTINGS = {'min_run_time': 60 * 7,
                     'temperature_sensor': 'Home'}
 
 class Mode(IntEnum):
-    '''Define the themostat operating mode.'''
+    '''Define the thermostat operating mode.'''
     COOL = -1
     AUTO = 0
     HEAT = 1
@@ -410,6 +410,7 @@ class HVACParam(threading.Thread):
         '''Current outdoor temperature.'''
         with self._lock:
             return self._data['outdoor_temp']
+
     @property
     def target_time(self):
         '''Last point in time when the system will produce enough power.'''
