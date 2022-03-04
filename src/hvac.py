@@ -250,7 +250,7 @@ class HVACTask(Task, Sensor):
     @Pyro5.api.expose
     @property
     def desc(self):
-        return 'HVAC(%s, %.1f)' % (self.priority.name, self.indoor_temp)
+        return 'HVAC(%s, %.1f°F)' % (self.priority.name, self.indoor_temp)
 
     def _is_in_comfortable_range(self):
         return self.indoor_temp >= self.settings.comfort_range[0] \
