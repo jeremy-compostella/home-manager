@@ -107,6 +107,16 @@ inaccessible_ecobee_service:
   can_acknowledge: true
   skip_first: true
   repeat: 5
+aquanta_service_status:
+  name: Aquanta service is not operational
+  done_message: Aquanta service has been restored
+  entity_id: sensor.monitor_aquanta_service
+  state: 'on'
+  notifiers:
+    - notify
+  can_acknowledge: true
+  skip_first: true
+  repeat: 5
 weather_forecast_data:
   name: Could you not get up-to-date weather forecast data
   done_message: Weather forecast has been successfully updated

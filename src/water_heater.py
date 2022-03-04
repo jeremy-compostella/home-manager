@@ -37,10 +37,11 @@ from select import select
 
 import Pyro5.api
 import requests
+from aquanta import Aquanta
 from cachetools import TTLCache
 from dateutil import parser
 
-from aquanta import Aquanta
+from monitor import MonitorProxy
 from power_simulator import PowerSimulatorProxy
 from scheduler import Priority, SchedulerProxy, Task
 from sensor import Sensor
@@ -466,6 +467,7 @@ def main():
     scheduler = SchedulerProxy()
     watchdog = WatchdogProxy()
     power_simulator = PowerSimulatorProxy()
+    monitor = MonitorProxy()
     debug("... is now ready to run")
     while True:
         settings.load()
@@ -477,11 +479,14 @@ def main():
         # Self-testing: on basic operation failure unregister from the
         # scheduler.
         try:
-            task.temperature # pylint: disable=pointless-statement
+            if task.mode == 'inactive':
+                raise RuntimeError('Aquanta is not operational')
             scheduler.register_task(uri)
+            monitor.track('aquanta service', True)
         except RuntimeError:
-            debug('Self-test failed, unregister from the scheduler')
+            debug('Self-test failed')
             try:
+                monitor.track('aquanta service', False)
                 scheduler.unregister_task(uri)
             except RuntimeError:
                 pass
