@@ -31,7 +31,6 @@
 import os
 import random
 import sys
-from bisect import bisect_left
 from datetime import datetime, timedelta
 from select import select
 from string import ascii_lowercase
@@ -43,6 +42,7 @@ import requests
 from cachetools import TTLCache
 from dateutil import parser, tz
 from geopy.geocoders import Nominatim
+from scipy.interpolate import interp1d
 
 from monitor import MonitorProxy
 from sensor import Sensor
@@ -101,16 +101,18 @@ class WeatherForecastService:
     '''
     #pylint: disable=too-few-public-methods
     API = 'https://api.weather.gov'
-    DEGREE = {'N': 0, 'NNE': 22, 'NE': 45.0, 'ENE': 67.5,
+    DEGREE = {'N': 0, 'NNE': 22.5, 'NE': 45.0, 'ENE': 67.5,
               'E': 90.0, 'ESE': 112.5, 'SE': 135.0, 'SSE': 157.5,
               'S': 180.0, 'SSW': 202.5, 'SW': 225.0, 'WSW': 247.5,
               'W': 270.0, 'WNW': 292.5, 'NW': 315.0, 'NNW': 337.5}
+    CONDITION = ['temperature', 'wind_speed', 'wind_degree']
 
     def __init__(self, latitude, longitude, monitor):
         self.latitude = latitude
         self.longitude = longitude
         self.monitor = monitor
-        self.cache = {}
+        self.timezone = None
+        self.interp = {}
         self.last_attempt = datetime.min
 
     @staticmethod
@@ -132,31 +134,27 @@ class WeatherForecastService:
         data = self._get(self.API + '/points/%.2f,%.2f' %
                          (self.latitude, self.longitude))
         try:
-            self.cache['timezone'] = tz.gettz(data['properties']['timeZone'])
+            self.timezone = tz.gettz(data['properties']['timeZone'])
             forecast_url = data['properties']['forecastHourly'] + '?units=us'
             periods = self._get(forecast_url)['properties']['periods']
         except KeyError as err:
             raise RuntimeError from err
-        now = datetime.now().astimezone(self.cache['timezone'])
+        now = datetime.now().astimezone(self.timezone)
         valid_data = now <= (self._str2time(periods[0]['startTime'])
                              + timedelta(hours=2))
         if valid_data:
-            self.cache['forecast'] = periods
+            times = [self._str2time(period['startTime']).timestamp() \
+                     for period in periods]
+            conditions = [self._conditions(period) for period in periods]
+            for cond in self.CONDITION:
+                self.interp[cond] = interp1d(times,
+                                            [c[cond] for c in conditions])
         else:
             debug('%s forecast period is outdated' % periods[0]['startTime'])
         self.monitor.track('weather forecast data', valid_data)
 
     def _str2time(self, string: str):
-        return parser.parse(string).astimezone(self.cache['timezone'])
-
-    class _Periods:
-        def __init__(self, periods, parent):
-            self.periods = periods
-            self.parent = parent
-        def __getitem__(self, index):
-            return self.parent._str2time(self.periods[index]['startTime'])
-        def __len__(self):
-            return len(self.periods)
+        return parser.parse(string).astimezone(self.timezone)
 
     def _conditions(self, period):
         return {'temperature': period['temperature'],
@@ -164,16 +162,13 @@ class WeatherForecastService:
                 'wind_degree': self.DEGREE[period['windDirection']]}
 
     def _forecast_and_timezone(self):
-        timezone = self.cache.get('timezone', None)
-        forecast = self.cache.get('forecast', None)
-        if timezone is None or forecast is None \
+        interp = self.interp.get('temperature', None)
+        if self.timezone is None or interp is None \
            or datetime.now() > self.last_attempt + timedelta(hours=1):
             self._load_forecast_data()
-            timezone = self.cache.get('timezone', None)
-            forecast = self.cache.get('forecast', None)
-        if timezone is None or forecast is None:
+            interp = self.interp.get('temperature', None)
+        if self.timezone is None or interp is None:
             raise RuntimeError('Could not get forecast data')
-        return forecast, timezone
 
     @Pyro5.api.expose
     def conditions_at(self, target: datetime) -> dict:
@@ -185,25 +180,14 @@ class WeatherForecastService:
         '''
         if isinstance(target, str):
             target = parser.parse(target)
-        periods, timezone = self._forecast_and_timezone()
-        target = target.astimezone(timezone)
-        if target < self._str2time(periods[0]['startTime']) \
-           or target > self._str2time(periods[-1]['startTime']):
-            raise RuntimeError('Weather data at %s is not available' % target)
-
-        index = bisect_left(self._Periods(periods, self), target)
-        end = self._str2time(periods[index]['startTime'])
-        if end == target:
-            return self._conditions(periods[index])
-
-        # The target time is between two forecast points, we assume a linear
-        # progression of all the weather parameters.
-        start = self._str2time(periods[index - 1]['startTime'])
-        ratio = 1 - (end - target).seconds / (end - start).seconds
-        end_conditions = self._conditions(periods[index])
-        start_conditions = self._conditions(periods[index - 1])
-        return {k:v + ratio * (end_conditions[k] - v) \
-                for (k, v) in start_conditions.items()}
+        self._forecast_and_timezone()
+        timestamp = target.astimezone(self.timezone).timestamp()
+        try:
+            return {cond:self.interp[cond](timestamp).item() \
+                    for cond in self.CONDITION}
+        except ValueError as err:
+            raise RuntimeError('%s weather data is not available' % target) \
+                from err
 
 class WeatherProxy(Sensor):
     '''Helper class for weather Sensor and Service.
