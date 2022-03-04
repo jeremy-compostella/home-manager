@@ -732,10 +732,9 @@ def my_excepthook(etype, value=None, traceback=None):
     log_exception('Uncaught exeption', *args)
     os.kill(os.getpid(), signal.SIGTERM)
 
-sys.excepthook = my_excepthook
-
 def main():
     '''Register and run the scheduler service.'''
+    sys.excepthook = my_excepthook
     # pylint: disable=too-many-locals,too-many-statements
     base = os.path.splitext(__file__)[0]
     init(base + '.log')

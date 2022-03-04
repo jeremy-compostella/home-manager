@@ -91,11 +91,11 @@ def my_excepthook(etype, value=None, traceback=None):
     log_exception('Uncaught exeption', *args)
     os.kill(os.getpid(), signal.SIGTERM)
 
-sys.excepthook = my_excepthook
-
 def main():
     '''Start and register a the sensor logger service.'''
     # pylint: disable=too-many-locals
+    sys.excepthook = my_excepthook
+
     base = os.path.splitext(__file__)[0]
     init(base + '.log')
     module_name = os.path.basename(base)

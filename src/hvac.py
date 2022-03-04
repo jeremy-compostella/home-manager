@@ -555,11 +555,12 @@ def my_excepthook(etype, value=None, traceback=None):
     log_exception('Uncaught exeption', *args)
     os.kill(os.getpid(), signal.SIGTERM)
 
-sys.excepthook = my_excepthook
-threading.excepthook = my_excepthook
 
 def main():
     '''Start and register an HVAC Task and Sensor.'''
+    sys.excepthook = my_excepthook
+    threading.excepthook = my_excepthook
+
     # pylint: disable=too-many-locals
     base = os.path.splitext(__file__)[0]
     module_name = os.path.basename(base)
