@@ -17,8 +17,6 @@ I decided to focus on the following four devices (in order of priority):
 3.  The water heater
 4.  The pool pump
 
-**Note**: As of today, the system covers the first three as I still need to spend the necessary time to find the ideal switch to control the pool pump.
-
 An optimization system also requires metrics.  My motivation being environmental and knowing that the utility companies of my city are mostly producing electricity out of fossil energies, I decided to measure the performance of the system as the ratio of energy used from the solar panel over the total energy used. It means that the objective of the system is to fit as much as possible the home electricity needs in the time frame the solar panels are producing.
 
 I have defined two measurable goals:
@@ -121,4 +119,11 @@ Once the hvac module has determined a target time, it automatically computes the
 The algorithm which compute the passive curve uses a three dimensional home thermal model which is computed by processing recorded data (see [models](./doc/models.md)). For a given indoor and outdoor temperature, a thermal loss value is associated. The thermal loss unit in this model is degree Fahrenheit per minute. The following figure is a representation of this model.
 
 ![img](doc/images/home_model.png)
+
+
+### Pool Pump task
+
+The [pool\_pump](./doc/pool_pump.md) task (`home_manager.task.pool_pump`)  is responsible of running the pool pump.
+
+In term of pool filtering, keeping the pool water clean and clear of bacteria depends on the water/outdoor temperature and filtering time.  The [pool\_pump](./doc/pool_pump.md) uses the temperature at 5AM to decides how long the pool pump should be run for the day. The priority is adjusted as we get closer to the target time.
 

@@ -88,6 +88,15 @@ sensor_logger_service_died:
     - notify
   can_acknowledge: true
   repeat: 5
+pool_pump_service_died:
+  name: pool_pump service died
+  done_message: pool_pump service is running
+  entity_id: sensor.monitor_process_pool_pump
+  state: 'on'
+  notifiers:
+    - notify
+  can_acknowledge: true
+  repeat: 5
 inaccessible_ecobee_service:
   name: Could not communicate with the Ecobee service
   done_message: Ecobee server communication restored
