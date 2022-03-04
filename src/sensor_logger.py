@@ -152,7 +152,8 @@ def main():
 
                 if name not in prev:
                     prev[name] = db_latest_record(name)
-                    del prev[name]['timestamp']
+                    if prev[name] is not None:
+                        del prev[name]['timestamp']
                 data = {field_name(key): value for key, value in data.items()}
                 if prev[name]:
                     if data == prev[name] \
