@@ -330,7 +330,7 @@ class WaterHeater(Task, Sensor):
         '''String representation of the water heater task and status.'''
         description = 'WaterHeater(%s' % self.priority.name
         try:
-            description += ', %d%%, %.2fF' % (self.available, self.temperature)
+            description += ', %d%%, %.2f°F' % (self.available, self.temperature)
         except RuntimeError:
             pass
         return description + ')'
