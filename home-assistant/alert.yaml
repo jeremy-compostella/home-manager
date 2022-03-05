@@ -106,7 +106,7 @@ inaccessible_ecobee_service:
     - notify
   can_acknowledge: true
   skip_first: true
-  repeat: 5
+  repeat: 60
 aquanta_service_status:
   name: Aquanta service is not operational
   done_message: Aquanta service has been restored
@@ -116,7 +116,7 @@ aquanta_service_status:
     - notify
   can_acknowledge: true
   skip_first: true
-  repeat: 5
+  repeat: 60
 weather_forecast_data:
   name: Could you not get up-to-date weather forecast data
   done_message: Weather forecast has been successfully updated
@@ -126,4 +126,4 @@ weather_forecast_data:
     - notify
   can_acknowledge: true
   skip_first: true
-  repeat: 5
+  repeat: 60
