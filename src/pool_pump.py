@@ -256,11 +256,13 @@ class PoolPump(Task):
 
     @Pyro5.api.expose
     def is_stoppable(self):
-        return self.has_been_running_for() > self._settings.min_run_time
+        return self.has_been_running_for() > self._settings.min_run_time \
+            and self._ewelink[self._id]['online']
 
     @Pyro5.api.expose
     def is_runnable(self):
-        return self.remaining_runtime > timedelta()
+        return self.remaining_runtime > timedelta() \
+            and self._ewelink[self._id]['online']
 
     @Pyro5.api.expose
     def meet_running_criteria(self, ratio, power=0) -> bool:
