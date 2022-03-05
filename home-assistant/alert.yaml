@@ -117,6 +117,16 @@ aquanta_service_status:
   can_acknowledge: true
   skip_first: true
   repeat: 60
+ewelink_service_status:
+  name: Ewelink service is not operational
+  done_message: Ewelink service has been restored
+  entity_id: sensor.monitor_ewelink_service
+  state: 'on'
+  notifiers:
+    - notify
+  can_acknowledge: true
+  skip_first: true
+  repeat: 60
 weather_forecast_data:
   name: Could you not get up-to-date weather forecast data
   done_message: Weather forecast has been successfully updated

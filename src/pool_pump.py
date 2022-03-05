@@ -48,6 +48,7 @@ from dateutil import parser
 from scipy.interpolate import interp1d
 from websocket import create_connection
 
+from monitor import MonitorProxy
 from power_simulator import PowerSimulatorProxy
 from scheduler import Priority, SchedulerProxy, Task
 from tools import (NameServer, Settings, debug, get_database, init,
@@ -347,6 +348,7 @@ def main():
     watchdog = WatchdogProxy()
     power_simulator = PowerSimulatorProxy()
     weather = WeatherProxy(timeout=3)
+    monitor = MonitorProxy()
     debug("... is now ready to run")
     while True:
         settings.load()
@@ -373,10 +375,12 @@ def main():
         # scheduler.
         try:
             task.is_running() # pylint: disable=pointless-statement
+            monitor.track('ewelink service', True)
             scheduler.register_task(uri)
         except RuntimeError:
             debug('Self-test failed, unregister from the scheduler')
             scheduler.unregister_task(uri)
+            monitor.track('ewelink service', False)
 
         while True:
             now = datetime.now()
