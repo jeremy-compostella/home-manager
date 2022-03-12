@@ -46,7 +46,7 @@ from scipy.interpolate import interp1d
 
 from monitor import MonitorProxy
 from sensor import Sensor
-from tools import NameServer, debug, init, log_exception, miles
+from tools import NameServer, debug, init, log_exception, miles, my_excepthook
 from watchdog import WatchdogProxy
 
 
@@ -266,6 +266,7 @@ class WeatherProxy(Sensor):
 
 def main():
     '''Register and run the weather Sensor and weather forecast Service.'''
+    sys.excepthook = my_excepthook
     base = os.path.splitext(__file__)[0]
     module_name = os.path.basename(base)
     config = init(base + '.log')

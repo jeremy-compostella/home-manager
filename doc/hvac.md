@@ -193,16 +193,6 @@ def is_ready()
 
 Return true if all this object is ready to be used.
 
-<a id="hvac.my_excepthook"></a>
-
-#### my\_excepthook
-
-```python
-def my_excepthook(etype, value=None, traceback=None)
-```
-
-On uncaught exception, log the exception and kill the process.
-
 <a id="hvac.main"></a>
 
 #### main

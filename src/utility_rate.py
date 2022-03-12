@@ -38,7 +38,8 @@ import Pyro5.api
 from dateutil import parser
 
 from sensor import Sensor
-from tools import NameServer, Settings, debug, init, log_exception
+from tools import (NameServer, Settings, debug, init, log_exception,
+                   my_excepthook)
 from watchdog import WatchdogProxy
 
 DEFAULT_SETTINGS = {'export': 0.0281,
@@ -101,6 +102,7 @@ def register(name, uri, raise_exception=True):
 def main():
     '''Start and register a water heater Task and water heater Sensor.'''
     # pylint: disable=too-many-locals
+    sys.excepthook = my_excepthook
     base = os.path.splitext(__file__)[0]
     module_name = os.path.basename(base)
     init(base + '.log')

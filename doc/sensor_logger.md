@@ -54,16 +54,6 @@ def create_table(table_name, cursor, data)
 
 Create "table_name" table if it does not exist
 
-<a id="sensor_logger.my_excepthook"></a>
-
-#### my\_excepthook
-
-```python
-def my_excepthook(etype, value=None, traceback=None)
-```
-
-On uncaught exception, log the exception and kill the process.
-
 <a id="sensor_logger.main"></a>
 
 #### main

@@ -40,7 +40,8 @@ from time import sleep
 import Pyro5.api
 
 from monitor import MonitorProxy
-from tools import NameServer, Settings, debug, init, log_exception
+from tools import (NameServer, Settings, debug, init, log_exception,
+                   my_excepthook)
 
 DEFAULT_SETTINGS = {'max_loop_duration': 5}
 MODULE_NAME = 'watchdog'
@@ -216,6 +217,7 @@ class WatchdogProxy(WatchdogInterface):
 
 # pylint: disable=missing-docstring
 def main():
+    sys.excepthook = my_excepthook
     base = os.path.splitext(__file__)[0]
     init(base + '.log')
     settings = Settings(base + '.ini', DEFAULT_SETTINGS)

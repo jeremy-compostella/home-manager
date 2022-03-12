@@ -500,16 +500,6 @@ provides convenience for services using the scheduler by suppressing the
 burden of locating the scheduler and handling the various remote object
 related errors.
 
-<a id="scheduler.my_excepthook"></a>
-
-#### my\_excepthook
-
-```python
-def my_excepthook(etype, value=None, traceback=None)
-```
-
-On uncaught exception, log the exception and kill the process.
-
 <a id="scheduler.main"></a>
 
 #### main

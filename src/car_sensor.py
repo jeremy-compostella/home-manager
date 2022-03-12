@@ -42,7 +42,7 @@ import Pyro5
 
 from sensor import Sensor
 from tools import (NameServer, Settings, db_latest_record, debug, init,
-                   log_exception)
+                   log_exception, my_excepthook)
 from watchdog import WatchdogProxy
 
 DEFAULT_SETTINGS = {'mac': '00:1D:A5:0C:80:96',
@@ -177,6 +177,7 @@ class CarSensorProxy(Sensor):
 
 def main():
     '''Register and run the Car Sensor.'''
+    sys.excepthook = my_excepthook
     base = os.path.splitext(__file__)[0]
     init(base + '.log')
     settings = Settings(base + '.ini', DEFAULT_SETTINGS)

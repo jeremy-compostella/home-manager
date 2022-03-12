@@ -52,7 +52,7 @@ from monitor import MonitorProxy
 from power_simulator import PowerSimulatorProxy
 from scheduler import Priority, SchedulerProxy, Task
 from tools import (NameServer, Settings, debug, get_database, init,
-                   log_exception)
+                   log_exception, my_excepthook)
 from watchdog import WatchdogProxy
 from weather import WeatherProxy
 
@@ -329,6 +329,7 @@ def configure_cycle(task, power_simulator, weather):
 def main():
     '''Register and run the pool pump task.'''
     # pylint: disable=too-many-locals
+    sys.excepthook = my_excepthook
     base = os.path.splitext(__file__)[0]
     config = init(base + '.log')['Ewelink']
     settings = Settings(base + '.ini', DEFAULT_SETTINGS)

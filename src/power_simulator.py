@@ -51,7 +51,7 @@ from timezonefinder import TimezoneFinder
 from power_sensor import CacheEntry, RecordScale
 from sensor import Sensor
 from tools import (NameServer, Settings, celsius, debug, init, log_exception,
-                   meter_per_second)
+                   meter_per_second, my_excepthook)
 from watchdog import WatchdogProxy
 from weather import WeatherProxy
 
@@ -411,6 +411,7 @@ class PowerSimulatorProxy:
 
 def main():
     '''Register and run the power_simulator Sensor and service.'''
+    sys.excepthook = my_excepthook
     base = os.path.splitext(__file__)[0]
     config = init(base + '.log')['general']
     pv_system = Settings('', PV_SYSTEM)

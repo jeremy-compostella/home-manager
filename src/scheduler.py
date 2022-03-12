@@ -36,7 +36,6 @@ dynamically adjust their priority depending on their own need.
 
 import functools
 import os
-import signal
 import sys
 import time
 from abc import abstractmethod
@@ -52,7 +51,8 @@ from cachetools import TTLCache
 
 from power_sensor import RecordScale
 from sensor import SensorReader
-from tools import NameServer, Settings, debug, init, log_exception
+from tools import (NameServer, Settings, debug, init, log_exception,
+                   my_excepthook)
 from watchdog import WatchdogProxy
 
 DEFAULT_SETTINGS = {'window_size': 12,
@@ -722,15 +722,6 @@ class SchedulerProxy(SchedulerInterface):
         # If we failed communicating with the scheduler, let's assume the
         # scheduler is dead and therefor, "on pause".
         return True if is_on_pause is None else is_on_pause
-
-def my_excepthook(etype, value=None, traceback=None):
-    '''On uncaught exception, log the exception and kill the process.'''
-    if value:
-        args = (etype, value, traceback)
-    else:
-        args = sys.exc_info()
-    log_exception('Uncaught exeption', *args)
-    os.kill(os.getpid(), signal.SIGTERM)
 
 def main():
     '''Register and run the scheduler service.'''

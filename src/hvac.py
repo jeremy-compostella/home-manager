@@ -29,7 +29,6 @@
 '''This module implements an HVAC Task based on the Ecobee thermostat.'''
 
 import os
-import signal
 import sys
 import threading
 from datetime import datetime
@@ -54,7 +53,8 @@ from monitor import MonitorProxy
 from power_simulator import PowerSimulatorProxy
 from scheduler import Priority, SchedulerProxy, Task
 from sensor import Sensor
-from tools import NameServer, Settings, debug, get_storage, init, log_exception
+from tools import (NameServer, Settings, debug, get_storage, init,
+                   log_exception, my_excepthook)
 from watchdog import WatchdogProxy
 from weather import WeatherProxy
 
@@ -545,16 +545,6 @@ class HVACParam(threading.Thread):
         except Exception:
             log_exception('Uncaught exception in run()',  *sys.exc_info())
             debug(''.join(Pyro5.errors.get_pyro_traceback()))
-
-def my_excepthook(etype, value=None, traceback=None):
-    '''On uncaught exception, log the exception and kill the process.'''
-    if value:
-        args = (etype, value, traceback)
-    else:
-        args = sys.exc_info()
-    log_exception('Uncaught exeption', *args)
-    os.kill(os.getpid(), signal.SIGTERM)
-
 
 def main():
     '''Start and register an HVAC Task and Sensor.'''

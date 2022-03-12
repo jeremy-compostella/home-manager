@@ -33,7 +33,8 @@ from select import select
 import Pyro5.api
 
 from sensor import Sensor
-from tools import NameServer, Settings, debug, init, log_exception
+from tools import (NameServer, Settings, debug, init, log_exception,
+                   my_excepthook)
 
 DEFAULT_SETTINGS = {'max_loop_duration': 5}
 MODULE_NAME = 'monitor'
@@ -94,6 +95,7 @@ class MonitorProxy:
 
 def main():
     # pylint: disable=too-many-locals
+    sys.excepthook = my_excepthook
     base = os.path.splitext(__file__)[0]
     init(base + '.log')
     settings = Settings(base + '.ini', DEFAULT_SETTINGS)

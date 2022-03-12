@@ -48,7 +48,8 @@ from pyemvue.device import VueDevice
 from pyemvue.enums import Scale, Unit
 
 from sensor import Sensor
-from tools import NameServer, Settings, debug, init, log_exception
+from tools import (NameServer, Settings, debug, init, log_exception,
+                   my_excepthook)
 from watchdog import WatchdogProxy
 
 DEFAULT_SETTINGS = {'delay_on_time_unit': 0.8,
@@ -254,6 +255,7 @@ class PowerSensor(Sensor):
 
 # pylint: disable=missing-docstring
 def main():
+    sys.excepthook = my_excepthook
     base = os.path.splitext(__file__)[0]
     config = init(base + '.log')['Emporia']
     settings = Settings(base + '.ini', DEFAULT_SETTINGS)

@@ -243,3 +243,13 @@ def kilometers(miles):
 
 def meter_per_second(mph):
     return mph / 2.237
+
+def my_excepthook(etype, value=None, traceback=None):
+    '''On uncaught exception, log the exception and kill the process.'''
+    if value:
+        args = (etype, value, traceback)
+    else:
+        args = sys.exc_info()
+    log_exception('Uncaught exeption', *args)
+    debug(''.join(Pyro5.errors.get_pyro_traceback()))
+    os.kill(os.getpid(), signal.SIGTERM)

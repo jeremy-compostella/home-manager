@@ -45,7 +45,8 @@ from car_sensor import CarSensorProxy
 from power_sensor import RecordScale
 from scheduler import Priority, SchedulerProxy, Task
 from sensor import SensorReader
-from tools import NameServer, Settings, debug, init, log_exception
+from tools import (NameServer, Settings, debug, init, log_exception,
+                   my_excepthook)
 from watchdog import WatchdogProxy
 
 DEFAULT_SETTINGS = {'power_sensor_key': 'EV',
@@ -191,6 +192,7 @@ class CarCharger(Task):
 def main():
     '''Register and run the car charger task.'''
     # pylint: disable=too-many-locals
+    sys.excepthook = my_excepthook
     base = os.path.splitext(__file__)[0]
     config = init(base + '.log')['Wallbox']
     settings = Settings(base + '.ini', DEFAULT_SETTINGS)

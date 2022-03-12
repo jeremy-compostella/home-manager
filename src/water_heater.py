@@ -45,7 +45,8 @@ from monitor import MonitorProxy
 from power_simulator import PowerSimulatorProxy
 from scheduler import Priority, SchedulerProxy, Task
 from sensor import Sensor
-from tools import NameServer, Settings, debug, fahrenheit, init, log_exception
+from tools import (NameServer, Settings, debug, fahrenheit, init,
+                   log_exception, my_excepthook)
 from watchdog import WatchdogProxy
 
 DEFAULT_SETTINGS = {'power': 4.65,
@@ -448,6 +449,7 @@ def device_exist_assert(device_id, aquanta):
 def main():
     '''Start and register a water heater Task and water heater Sensor.'''
     # pylint: disable=too-many-locals
+    sys.excepthook = my_excepthook
     base = os.path.splitext(__file__)[0]
     module_name = os.path.basename(base)
     config = init(base + '.log')['Aquanta']

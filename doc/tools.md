@@ -87,3 +87,13 @@ def db_dict_to_fields(data)
 
 Turn "data" dictionary into a SQL table fields description
 
+<a id="tools.my_excepthook"></a>
+
+#### my\_excepthook
+
+```python
+def my_excepthook(etype, value=None, traceback=None)
+```
+
+On uncaught exception, log the exception and kill the process.
+

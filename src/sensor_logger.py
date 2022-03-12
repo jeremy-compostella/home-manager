@@ -29,7 +29,6 @@
 '''This module logs the sensors records every minute into the database.'''
 
 import os
-import signal
 import sqlite3
 import sys
 from datetime import datetime, timedelta, timezone
@@ -39,7 +38,7 @@ import Pyro5.api
 
 from power_sensor import RecordScale
 from tools import (NameServer, db_dict_factory, db_latest_record, debug,
-                   get_database, init, log_exception)
+                   get_database, init, log_exception, my_excepthook)
 from watchdog import WatchdogProxy
 
 
@@ -81,15 +80,6 @@ def create_table(table_name, cursor, data):
     req = 'CREATE table %s (timestamp timestamp PRIMARY KEY, %s)' \
         % (table_name, dict_to_table_fields(data))
     execute(cursor, req)
-
-def my_excepthook(etype, value=None, traceback=None):
-    '''On uncaught exception, log the exception and kill the process.'''
-    if value:
-        args = (etype, value, traceback)
-    else:
-        args = sys.exc_info()
-    log_exception('Uncaught exeption', *args)
-    os.kill(os.getpid(), signal.SIGTERM)
 
 def main():
     '''Start and register a the sensor logger service.'''
