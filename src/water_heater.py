@@ -52,7 +52,7 @@ from watchdog import WatchdogProxy
 DEFAULT_SETTINGS = {'power': 4.65,
                     'minutes_per_degree': 2,
                     'desired_temperature': 125,
-                    'min_run_time': 60 * 10,
+                    'min_run_time': 60 * 7,
                     'no_power_delay': 60 * 30,
                     'power_sensor_key': 'water heater',
                     'attempt_delay': 0.5}
