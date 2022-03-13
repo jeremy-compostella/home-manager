@@ -367,7 +367,7 @@ def main():
         watchdog.register(os.getpid(), MODULE_NAME)
         watchdog.kick(os.getpid())
 
-        if datetime.now() > task.target_time:
+        if datetime.now() > task.target_time + timedelta(hours=1):
             configure_cycle(task, power_simulator, weather)
 
         try:
