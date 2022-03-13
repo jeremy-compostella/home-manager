@@ -62,3 +62,8 @@
       unique_id: sensor.rounded_home_temperature
       value_template: '{{states("sensor.temperature") | round(1) }}'
       unit_of_measurement: "°F"
+    rounded_pool_temperature:
+      entity_id: sensor.temperature_3
+      unique_id: sensor.rounded_pool_temperature
+      value_template: '{{states("sensor.temperature_3") | round(1) }}'
+      unit_of_measurement: "°F"
