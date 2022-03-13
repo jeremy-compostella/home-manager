@@ -73,7 +73,9 @@ CLASS_AND_UNITS = {'°F': {'unit': TEMP_FAHRENHEIT,
                    '$/kWh': {'unit': '{currency}/kWh',
                              'device_class': None},
                    'humidity': {'unit': PERCENTAGE,
-                                'device_class': DEVICE_CLASS_HUMIDITY}}
+                                'device_class': DEVICE_CLASS_HUMIDITY},
+                   'minutes': {'unit': 'minutes',
+                               'device_class': None}}
 
 def locate(path):
     nameserver = Pyro5.api.locate_ns()
@@ -152,7 +154,7 @@ async def async_setup_platform(hass, config, add_entities, discovery_info=None):
     for key, _ in coordinator.data.items():
         add_entities([PowerSensor(coordinator, 'power_simulator', key, 'minute')])
 
-    for sensor in ['water_heater', 'car', 'utility_rate', 'weather']:
+    for sensor in ['water_heater', 'car', 'utility_rate', 'weather', 'pool']:
         coordinator = DataUpdateCoordinator(
             hass, LOGGER, name="sensor",
             update_method=update_generic_data(sensor),
@@ -177,6 +179,13 @@ async def async_setup_platform(hass, config, add_entities, discovery_info=None):
                 add_entities([TaskPrioritySensor(coordinator, task_name)])
             else:
                 add_entities([BinarySensor(coordinator, task_name, key)])
+
+    coordinator = DataUpdateCoordinator(
+        hass, LOGGER, name="sensor",
+        update_method=update_generic_data('pool_pump'),
+        update_interval=timedelta(minutes=1))
+    await coordinator.async_refresh()
+    add_entities([RemainingTimeSensor(coordinator, 'pool_pump')])
 
     coordinator = DataUpdateCoordinator(
         hass, LOGGER, name="sensor",
@@ -331,3 +340,36 @@ class BinarySensor(CoordinatorEntity, BinarySensorEntity):
     @property
     def device_class(self):
         return self._device_class
+
+class RemainingTimeSensor(CoordinatorEntity, NumberEntity):
+    def __init__(self, coordinator, name):
+        super().__init__(coordinator)
+        self._name = name
+
+    @property
+    def value(self):
+        return self.coordinator.data['remaining_runtime']['value']
+
+    @property
+    def name(self):
+        return '%s remaining time' % self._name
+
+    @property
+    def min_value(self):
+        return 0
+
+    @property
+    def max_value(self):
+        return 10000
+
+    @property
+    def step(self):
+        return 1
+
+    @property
+    def mode(self):
+        return 'auto'
+
+    @property
+    def unique_id(self):
+        return 'sensor.%s.%s.remaining_runtime' % (DOMAIN, self.name)
