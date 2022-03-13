@@ -31,6 +31,7 @@
 '''
 
 import os
+import socket
 import sys
 from datetime import datetime, timedelta
 from select import select
@@ -85,7 +86,7 @@ class CarCharger(Task):
             except requests.exceptions.HTTPError:
                 log_exception('%s%s failed' % (name, args), *sys.exc_info())
                 self.wallbox.authenticate()
-            except requests.exceptions.ReadTimeout:
+            except (requests.exceptions.RequestException, socket.gaierror, OSError):
                 log_exception('%s%s failed' % (name, args), *sys.exc_info())
                 sleep(0.5)
         raise RuntimeError('%s%s failed too many times' % (name, args))
