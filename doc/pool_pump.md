@@ -19,7 +19,7 @@ Helper class to communicate with the Ewelink server.
 ## PoolPump Objects
 
 ```python
-class PoolPump(Task)
+class PoolPump(Task,  Sensor)
 ```
 
 This task uses a Migro switch to control a pool pump.

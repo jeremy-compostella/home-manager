@@ -51,6 +51,7 @@ from websocket import create_connection
 from monitor import MonitorProxy
 from power_simulator import PowerSimulatorProxy
 from scheduler import Priority, SchedulerProxy, Task
+from sensor import Sensor
 from tools import (NameServer, Settings, debug, get_database, init,
                    log_exception, my_excepthook)
 from watchdog import WatchdogProxy
@@ -195,7 +196,7 @@ class Ewelink:
         if json.loads(resp)['error'] != 0:
             raise RuntimeError('Ewelink: action %s failed' % payload['action'])
 
-class PoolPump(Task):
+class PoolPump(Task, Sensor):
     '''This task uses a Migro switch to control a pool pump. '''
     # pylint: disable=too-many-instance-attributes
     def __init__(self, device_id, ewelink, settings):
@@ -282,6 +283,14 @@ class PoolPump(Task):
         # TODO: use a sliding window of collected power
         return 2
 
+    @Pyro5.api.expose
+    def read(self, **kwargs):
+        return {'remaining_runtime': int(self.remaining_runtime.seconds / 60)}
+
+    @Pyro5.api.expose
+    def units(self, **kwargs):
+        return {'remaining_runtime': 'minutes'}
+
     def adjust_priority(self):
         '''Update the priority according to the target time'''
         now = datetime.now()
@@ -344,6 +353,7 @@ def main():
     nameserver = NameServer()
     uri = daemon.register(task)
     nameserver.register_task(MODULE_NAME, uri)
+    nameserver.register_sensor(MODULE_NAME, uri)
 
     scheduler = SchedulerProxy()
     watchdog = WatchdogProxy()
@@ -368,8 +378,9 @@ def main():
 
         try:
             nameserver.register_task(MODULE_NAME, uri)
+            nameserver.register_sensor(MODULE_NAME, uri)
         except RuntimeError:
-            log_exception('Failed to register the sensor',
+            log_exception('Failed to register the task and sensor',
                           *sys.exc_info())
 
         # Self-testing: on basic operation failure unregister from the
