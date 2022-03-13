@@ -473,6 +473,8 @@ class HVACParam(threading.Thread):
         minutes = int((end - start).total_seconds() / 60)
         if minutes == 0:
             raise RuntimeError('Not enough time to estimate')
+        if minutes == 1:        # Note enough to create a new curve
+            return
         start_temp = temperature
         step = max_step = max(1, round(minutes / 20))
         while True:
