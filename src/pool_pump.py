@@ -40,6 +40,7 @@ from datetime import datetime
 from datetime import time as dtime
 from datetime import timedelta
 from select import select
+from statistics import mean
 
 import Pyro5
 import requests
@@ -58,7 +59,9 @@ from watchdog import WatchdogProxy
 from weather import WeatherProxy
 
 DEFAULT_SETTINGS = {'power_sensor_key': 'pool',
-                    'min_run_time': timedelta(minutes=7)}
+                    'min_run_time': timedelta(minutes=7),
+                    'power': 2,
+                    'clean_filter_threshold': 1.55}
 
 MODULE_NAME = 'pool_pump'
 
@@ -204,6 +207,9 @@ class PoolPump(Task, Sensor):
         self._id = device_id
         self._ewelink = ewelink
         self._settings = settings
+        self.healthy = True
+        self.filter_is_clean = True
+        self._powers = []
         self.started_at = None
         self.target_time = datetime.min
         self.remaining_runtime = timedelta()
@@ -229,6 +235,10 @@ class PoolPump(Task, Sensor):
         debug('Starting')
         self._ewelink[self._id] = {'switch': 'on'}
         self.started_at = datetime.now()
+        if self.healthy is False:
+            debug('Mark healthy in an attempt to recover on start')
+            self.healthy = True
+        self._powers = []
 
     @Pyro5.api.expose
     @Pyro5.api.oneway
@@ -269,6 +279,11 @@ class PoolPump(Task, Sensor):
     @Pyro5.api.expose
     def meet_running_criteria(self, ratio, power=0) -> bool:
         debug('meet_running_criteria(%.3f, %.3f)' % (ratio, power))
+        if self.has_been_running_for() > timedelta(minutes=2):
+            self.healthy = power > .2
+            self._powers.append(power)
+            self.filter_is_clean = \
+                mean(self._powers) > self._settings.clean_filter_threshold
         return self.is_runnable() and ratio >= 1
 
     @property
@@ -280,8 +295,7 @@ class PoolPump(Task, Sensor):
     @property
     @Pyro5.api.expose
     def power(self):
-        # TODO: use a sliding window of collected power
-        return 2
+        return max(self._powers) if self._powers else self._settings.power
 
     @Pyro5.api.expose
     def read(self, **kwargs):
@@ -337,7 +351,7 @@ def configure_cycle(task, power_simulator, weather):
 
 def main():
     '''Register and run the pool pump task.'''
-    # pylint: disable=too-many-locals
+    # pylint: disable=too-many-locals,too-many-statements
     sys.excepthook = my_excepthook
     base = os.path.splitext(__file__)[0]
     config = init(base + '.log')['Ewelink']
@@ -388,11 +402,21 @@ def main():
         try:
             task.is_running() # pylint: disable=pointless-statement
             monitor.track('ewelink service', True)
-            scheduler.register_task(uri)
+            if task.healthy:
+                monitor.track('pool pump operational', True)
+                scheduler.register_task(uri)
+            else:
+                monitor.track('pool pump operational', False)
+                debug('Pool pump does not operate property, unregister...')
+                scheduler.unregister_task(uri)
+                task.stop()
         except RuntimeError:
-            debug('Self-test failed, unregister from the scheduler')
+            log_exception('Self-test failed, unregister from the scheduler',
+                          *sys.exc_info())
             scheduler.unregister_task(uri)
             monitor.track('ewelink service', False)
+
+        monitor.track('pool filter is clean', task.filter_is_clean)
 
         while True:
             now = datetime.now()

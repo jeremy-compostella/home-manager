@@ -127,6 +127,26 @@ ewelink_service_status:
   can_acknowledge: true
   skip_first: true
   repeat: 60
+pool_pump_operational:
+  name: Pool pump does not use enough power
+  done_message: Pool pump operates properly
+  entity_id: sensor.monitor_pool_pump_operational
+  state: 'on'
+  notifiers:
+    - notify
+  can_acknowledge: true
+  skip_first: false
+  repeat: 1440
+pool_filter_status:
+  name: Pool filter is dirty
+  done_message: Pool filter is clean
+  entity_id: sensor.monitor_pool_filter_is_clean
+  state: 'on'
+  notifiers:
+    - notify
+  can_acknowledge: true
+  skip_first: false
+  repeat: 1440
 weather_forecast_data:
   name: Could you not get up-to-date weather forecast data
   done_message: Weather forecast has been successfully updated
