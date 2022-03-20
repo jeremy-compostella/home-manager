@@ -440,33 +440,27 @@ class HVACParam(threading.Thread):
     def _update_max_available_power(self):
         now = datetime.now()
         tomorrow = (now + timedelta(days=1)).replace(hour=0, minute=0)
-        try:
-            available = self.power_simulator.max_available_power_at(tomorrow)
-            available -= 0.0001
-            with self._lock:
-                self._data['max_available_power'] = available
+        available = self.power_simulator.max_available_power_at(tomorrow)
+        available -= 0.0001
+        with self._lock:
+            self._data['max_available_power'] = available
             debug('max_available_power updated to %s' % available)
-        except (RuntimeError, Pyro5.errors.PyroError):
-            log_exception('Max power update failed', *sys.exc_info())
 
     def _update_target_time(self):
         power = self.max_available_power
-        try:
-            while True:
-                _, target_time = self.power_simulator.next_power_window(power)
-                target_time = parser.parse(target_time)
-                temp_at_target = self.weather.temperature_at(target_time)
-                hvac_power = self.hvac_model.power(temp_at_target)
-                if hvac_power >= power:
-                    with self._lock:
-                        self._data['target_time'] = target_time
-                        debug('Target time updated to %s' % target_time)
-                        debug('Power at target time is %s' % hvac_power)
-                    break
-                debug('new power is %s' % hvac_power)
-                power = hvac_power
-        except (RuntimeError, Pyro5.errors.PyroError):
-            log_exception('Target time update failed', *sys.exc_info())
+        while True:
+            _, target_time = self.power_simulator.next_power_window(power)
+            target_time = parser.parse(target_time)
+            temp_at_target = self.weather.temperature_at(target_time)
+            hvac_power = self.hvac_model.power(temp_at_target)
+            if hvac_power >= power:
+                with self._lock:
+                    self._data['target_time'] = target_time
+                    debug('Target time updated to %s' % target_time)
+                    debug('Power at target time is %s' % hvac_power)
+                break
+            debug('new power is %s' % hvac_power)
+            power = hvac_power
 
     def _compute_passive_curve(self, start, end, end_temp, precision=0.1):
         temperature = end_temp
@@ -523,6 +517,8 @@ class HVACParam(threading.Thread):
                         self._update_target_time()
                     except (RuntimeError, Pyro5.errors.PyroError):
                         log_exception('Parameters update failed', *sys.exc_info())
+                        sleep(20)
+                        continue
                 try:
                     temperature = self.weather.temperature
                 except (RuntimeError, Pyro5.errors.PyroError):
