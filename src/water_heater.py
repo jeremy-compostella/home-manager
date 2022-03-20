@@ -486,7 +486,8 @@ def main():
             scheduler.register_task(uri)
             monitor.track('aquanta service', True)
         except RuntimeError:
-            debug('Self-test failed')
+            log_exception('Self-test failed, unregister from the scheduler',
+                          *sys.exc_info())
             try:
                 monitor.track('aquanta service', False)
                 scheduler.unregister_task(uri)
