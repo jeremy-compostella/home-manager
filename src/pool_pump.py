@@ -34,6 +34,7 @@ import hashlib
 import hmac
 import json
 import os
+import sqlite3
 import sys
 import time
 from datetime import datetime
@@ -346,7 +347,7 @@ def configure_cycle(task, power_simulator, weather):
         task.remaining_runtime = remaining_runtime
         task.target_time = target_time
         debug('target_time updated to %s' % task.target_time)
-    except (ValueError, RuntimeError) as err:
+    except (ValueError, RuntimeError, sqlite3.OperationalError) as err:
         debug(str(err))
 
 def main():
