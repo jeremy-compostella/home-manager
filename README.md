@@ -125,5 +125,5 @@ The algorithm which compute the passive curve uses a three dimensional home ther
 
 The [pool\_pump](./doc/pool_pump.md) task (`home_manager.task.pool_pump`)  is responsible of running the pool pump.
 
-In term of pool filtering, keeping the pool water clean and clear of bacteria depends on the water/outdoor temperature and filtering time.  The [pool\_pump](./doc/pool_pump.md) uses the temperature at 5AM to decides how long the pool pump should be run for the day. The priority is adjusted as we get closer to the target time.
+In term of pool filtering, keeping the pool water clean and clear of bacteria depends on the water/outdoor temperature and filtering time.  The [pool\_pump](./doc/pool_pump.md) uses the minimal temperature within the next twenty four hours to decide how long the pool pump should be run for the day. The priority is adjusted as we get closer to the target time.
 

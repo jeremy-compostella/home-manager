@@ -338,9 +338,7 @@ def configure_cycle(task, power_simulator, weather):
         _, target_time = power_simulator.next_power_window(task.power)
         target_time = parser.parse(target_time)
 
-        tomorrow = (datetime.now() + timedelta(days=1)).date()
-        early_morning = datetime.combine(tomorrow, dtime(hour=5))
-        temp = weather.temperature_at(early_morning)
+        temp = weather.minimum_temperature()
         remaining_runtime = timedelta(minutes=round(fun(temp).item()))
         if datetime.now().date() == target_time.date():
             remaining_runtime -= already_ran_today_for(task.power / 4)
