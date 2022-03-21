@@ -59,6 +59,28 @@ Return the condition at TARGET time.
 The conditions include the 'temperature', 'wind_speed' and
 'wind_degree'.
 
+<a id="weather.WeatherForecastService.minimum_temperature"></a>
+
+#### minimum\_temperature
+
+```python
+@Pyro5.api.expose
+def minimum_temperature(hours=24)
+```
+
+Minimum temperature in the next HOURS hours.
+
+<a id="weather.WeatherForecastService.maximum_temperature"></a>
+
+#### maximum\_temperature
+
+```python
+@Pyro5.api.expose
+def maximum_temperature(hours=24)
+```
+
+Maximum temperature in the next HOURS hours.
+
 <a id="weather.WeatherProxy"></a>
 
 ## WeatherProxy Objects

@@ -189,6 +189,22 @@ class WeatherForecastService:
             raise RuntimeError('%s weather data is not available' % target) \
                 from err
 
+    def _temperatures(self, hours):
+        self._forecast_and_timezone()
+        start = self.interp['temperature'].x[0]
+        return [self.interp['temperature'](start + i * 60 * 60).item() \
+                for i in range(hours)]
+
+    @Pyro5.api.expose
+    def minimum_temperature(self, hours=24):
+        '''Minimum temperature in the next HOURS hours.'''
+        return min(self._temperatures(hours))
+
+    @Pyro5.api.expose
+    def maximum_temperature(self, hours=24):
+        '''Maximum temperature in the next HOURS hours.'''
+        return max(self._temperatures(hours))
+
 class WeatherProxy(Sensor):
     '''Helper class for weather Sensor and Service.
 
@@ -261,6 +277,10 @@ class WeatherProxy(Sensor):
             return self.read()[name]
         if name in ['temperature_at', 'wind_speed_at', 'wind_degree_at']:
             return self._forecast(name)
+        if name in ['minimum_temperature', 'maximum_temperature']:
+            def inner(*args, **kwargs):
+                return self.__attempt('service', name, *args, **kwargs)
+            return inner
         raise AttributeError("'%s' has no attribute '%s'"
                              % (self.__class__.name, name))
 
