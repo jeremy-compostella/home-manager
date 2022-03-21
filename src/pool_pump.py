@@ -373,6 +373,7 @@ def main():
     power_simulator = PowerSimulatorProxy()
     weather = WeatherProxy(timeout=3)
     monitor = MonitorProxy()
+    cycle_end = datetime.min
     debug("... is now ready to run")
     while True:
         settings.load()
@@ -380,8 +381,10 @@ def main():
         watchdog.register(os.getpid(), MODULE_NAME)
         watchdog.kick(os.getpid())
 
-        if datetime.now() > task.target_time + timedelta(hours=1):
+        if datetime.now() > cycle_end:
             configure_cycle(task, power_simulator, weather)
+            cycle_end = datetime.combine(datetime.now().date(),
+                                          dtime(hour=23, minute=59))
 
         try:
             task.update_remaining_runtime()
