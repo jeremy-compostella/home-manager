@@ -34,6 +34,7 @@ import os
 import socket
 import sys
 from datetime import datetime, timedelta
+from enum import IntEnum
 from select import select
 from time import sleep
 
@@ -57,6 +58,14 @@ DEFAULT_SETTINGS = {'power_sensor_key': 'EV',
 
 MODULE_NAME = 'car_charger'
 
+class Status(IntEnum):
+    '''Wallbox charger states.'''
+    FULLY_CHARGED = -1          # TODO: identify and set the value
+    UNPLUGGED = 161
+    WAITING_FOR_NEXT_SCHEDULE = 179
+    PAUSED = 182
+    CHARGING = 194
+
 class CarCharger(Task):
     '''Wallbox car charger Task.
 
@@ -64,11 +73,6 @@ class CarCharger(Task):
     charge rate based on produced power availability.
 
     '''
-    FULLY_CHARGED = 'Connected: waiting for car demand'
-    PLUGGED_IN    = ['Charging', FULLY_CHARGED,
-                     'Connected: waiting for next schedule',
-                     'Paused by user']
-
     def __init__(self, wallbox: Wallbox, charger_id: int, settings: Settings):
         Task.__init__(self, Priority.LOW, keys=[settings.power_sensor_key],
                       auto_adjust=True)
@@ -97,7 +101,9 @@ class CarCharger(Task):
         try:
             return self.cache['status']
         except KeyError:
-            self.cache['status'] = self.__call('getChargerStatus')
+            status = self.__call('getChargerStatus')
+            debug('new cache status=%s' % status)
+            self.cache['status'] = status
             return self.cache['status']
 
     @Pyro5.api.expose
@@ -116,9 +122,9 @@ class CarCharger(Task):
         self.cache.clear()
 
     @property
-    def status_description(self):
-        '''String describing the charger status.'''
-        return self.status['status_description']
+    def status_id(self):
+        '''Identifier describing the charger status.'''
+        return self.status['status_id']
 
     @property
     def min_available_current(self):
@@ -132,7 +138,7 @@ class CarCharger(Task):
 
     @Pyro5.api.expose
     def is_running(self) -> bool:
-        return self.status_description == 'Charging'
+        return self.status_id == Status.CHARGING
 
     @Pyro5.api.expose
     def is_stoppable(self):
@@ -142,8 +148,7 @@ class CarCharger(Task):
     def is_runnable(self):
         '''True if calling the 'start' function would initiate charging.'''
         return self.state_of_charge < self.settings.max_state_of_charge \
-            and self.status_description in self.PLUGGED_IN \
-            and self.status_description != self.FULLY_CHARGED
+            and self.status_id not in [Status.UNPLUGGED, Status.FULLY_CHARGED]
 
     @Pyro5.api.expose
     def meet_running_criteria(self, ratio, power=0) -> bool:
@@ -233,7 +238,7 @@ def main():
         # Self-testing: on basic operation failure unregister from the
         # scheduler.
         try:
-            task.status_description # pylint: disable=pointless-statement
+            task.status_id # pylint: disable=pointless-statement
             scheduler.register_task(uri)
         except RuntimeError:
             debug('Self-test failed, unregister from the scheduler')
