@@ -329,7 +329,7 @@ def main():
         plt.show()
     if args.action == 'plot;save' or args.action == 'save':
         answer = input("Are you sure you want to update the database? ")
-        if answer.lower() in ["y","yes"]:
+        if answer.lower() in ["y", "yes"]:
             model.save()
         else:
             print('Aborting')
