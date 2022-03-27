@@ -245,8 +245,9 @@ class PoolPump(Task, Sensor):
     @Pyro5.api.oneway
     def stop(self):
         debug('Stopping')
-        self._ewelink[self._id] = {'switch': 'off'}
         self.started_at = None
+        self._ewelink[self._id] = {'switch': 'off'}
+        debug('Stopped')
 
     @Pyro5.api.expose
     def is_running(self):
