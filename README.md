@@ -22,9 +22,9 @@ An optimization system also requires metrics.  My motivation being environmental
 I have defined two measurable goals:
 
 1.  The electric car should be charged at 100% with solar produced energy
-2.  The home energy consumption (including the car charger) must be covered at more than 65% by the solar energy
+2.  The home energy consumption (including the car charger) must be covered at more than two third by the solar energy
 
-As of today, between `June 2021` and `March 2022`, the entire home energy consumption has been covered by solar energy at `65%`.
+As of today, between `June 2021` and `March 2022`, the entire home energy consumption has been covered by solar energy at `66%`.
 
 The following diagram represents the distribution of the energy consumption of my home per month since I started this project. It also includes the per-month ratio of energy used which originated from the solar panels (in light blue).
 
