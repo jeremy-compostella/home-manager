@@ -228,9 +228,9 @@ class WaterHeater(Task, Sensor):
             self.mode = 'timer'
         duration = max(self.estimate_run_time(), self.min_run_time)
         debug('Starting for %s' % duration)
-        self.mode = ('boost', duration)
         self.started_at = datetime.now()
         self._not_runnable_till = datetime.min
+        self.mode = ('boost', duration)
 
     @Pyro5.api.expose
     @Pyro5.api.oneway
