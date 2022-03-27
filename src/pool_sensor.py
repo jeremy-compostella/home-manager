@@ -33,11 +33,13 @@ device.
 
 import os
 import sys
+from datetime import datetime, timedelta
 from select import select
 
 import Pyro5.api
 from wirelesstagpy import WirelessTags
 
+from monitor import MonitorProxy
 from sensor import Sensor
 from tools import (NameServer, Settings, debug, fahrenheit, init,
                    log_exception, my_excepthook)
@@ -50,21 +52,31 @@ class TemperatureSensor(Sensor):
     def __init__(self, api, uuid):
         self._uuid = uuid
         self._temperature = self._tags_to_temperature(api.load_tags())
+        debug('Temperature at init: %.2f°F' % self._temperature)
+        self._latest_update = datetime.now()
+        self._api = api
         def update(tags, events):
             return self._update(tags, events)
         api.start_monitoring(update)
+
+    def __del__(self):
+        self._api.stop_monitoring()
 
     def _tags_to_temperature(self, spec):
         return fahrenheit(spec[self._uuid].temperature)
 
     def _update(self, tags, events):
         del events
-        if self._uuid in tags:
+        if self._uuid in tags \
+           and self._temperature != self._tags_to_temperature(tags):
             self._temperature = self._tags_to_temperature(tags)
+            self._latest_update = datetime.now()
             debug('Temperature update: %.2f°F' % self._temperature)
 
     @Pyro5.api.expose
     def read(self, **kwargs):
+        if datetime.now() > self._latest_update + timedelta(hours=8):
+            raise RuntimeError('Outdated data')
         return {'temperature': self._temperature}
 
     @Pyro5.api.expose
@@ -85,12 +97,25 @@ def main():
     uri = daemon.register(sensor)
 
     watchdog = WatchdogProxy()
+    monitor = MonitorProxy()
+    monitor.track('pool sensor operational', True)
     debug("... is now ready to run")
     while True:
         settings.load()
 
         watchdog.register(os.getpid(), 'pool_sensor')
         watchdog.kick(os.getpid())
+
+        if datetime.now() > sensor._latest_update + timedelta(hours=8):
+            debug('No update in eight hours, recreate the sensor object')
+            new_sensor = TemperatureSensor(WirelessTags(config['login'],
+                                                        config['password']),
+                                           config['uuid'])
+            if sensor._temperature == new_sensor._temperature:
+                debug('New sensor temperature is the same.')
+                monitor.track('pool sensor operational', False)
+            sensor = new_sensor
+            uri = daemon.register(sensor)
 
         try:
             NameServer().register_sensor('pool', uri)
