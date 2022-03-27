@@ -116,7 +116,7 @@ class HVACTask(Task, Sensor):
             return None
         for mode in [Mode.HEAT, Mode.COOL]:
             if self.hvac_mode not in [Mode.AUTO, mode]:
-                return None
+                continue
             if deviation * mode.value < 0:
                 return mode
         return None
@@ -198,10 +198,10 @@ class HVACTask(Task, Sensor):
            or self._deviation() * self.hvac_mode.value > 0:
             return False
         if self.hvac_mode == Mode.HEAT \
-           and self.indoor_temp > self.settings.comfort_range[1]:
+           and self.indoor_temp >= self.settings.comfort_range[1]:
             return False
         if self.hvac_mode == Mode.COOL \
-           and self.indoor_temp < self.settings.comfort_range[0]:
+           and self.indoor_temp <= self.settings.comfort_range[0]:
             return False
         return True
 
