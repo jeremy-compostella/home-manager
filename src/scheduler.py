@@ -603,10 +603,14 @@ class Scheduler(SchedulerInterface):
                     self.running.remove(task)
                     self.stopped.append(task)
                 break
-        task_to_start = self.__elect_task()
-        if task_to_start:
+        while True:
+            task_to_start = self.__elect_task()
+            if not task_to_start:
+                break
             debug('Starting %s' % task_to_start.desc)
             task_to_start.start()
+            self.stopped.remove(task_to_start)
+            self.running.append(task_to_start)
         self.cache.clear()
 
     def stop_all(self):
