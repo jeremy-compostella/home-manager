@@ -53,7 +53,7 @@ from websocket import create_connection
 from monitor import MonitorProxy
 from power_simulator import PowerSimulatorProxy
 from scheduler import Priority, SchedulerProxy, Task
-from sensor import Sensor
+from sensor import Sensor, SensorReader
 from tools import (NameServer, Settings, debug, get_database, init,
                    log_exception, my_excepthook)
 from watchdog import WatchdogProxy
@@ -331,15 +331,17 @@ def already_ran_today_for(min_power = .5):
                 minutes += 1
         return timedelta(minutes=minutes)
 
-def configure_cycle(task, power_simulator, weather):
+def configure_cycle(task, power_simulator, weather, pool_sensor):
     '''Compute and set the current cycle target time and runtime.'''
     fun = interp1d([52, 75], [60, 4.5 * 60], fill_value=(60, 4.5 * 60),
                        bounds_error=False)
     try:
         _, target_time = power_simulator.next_power_window(task.power)
         target_time = parser.parse(target_time)
-
-        temp = weather.minimum_temperature()
+        try:
+            temp = pool_sensor.read()['temperature']
+        except RuntimeError:
+            temp = weather.minimum_temperature()
         remaining_runtime = timedelta(minutes=round(fun(temp).item()))
         if datetime.now().date() == target_time.date():
             remaining_runtime -= already_ran_today_for(task.power / 4)
@@ -374,6 +376,7 @@ def main():
     power_simulator = PowerSimulatorProxy()
     weather = WeatherProxy(timeout=3)
     monitor = MonitorProxy()
+    pool_sensor = SensorReader('pool')
     cycle_end = datetime.min
     debug("... is now ready to run")
     while True:
@@ -383,7 +386,7 @@ def main():
         watchdog.kick(os.getpid())
 
         if datetime.now() > cycle_end:
-            configure_cycle(task, power_simulator, weather)
+            configure_cycle(task, power_simulator, weather, pool_sensor)
             cycle_end = datetime.combine(datetime.now().date(),
                                           dtime(hour=23, minute=59))
 
