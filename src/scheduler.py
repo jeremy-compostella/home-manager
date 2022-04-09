@@ -410,11 +410,11 @@ class Scheduler(SchedulerInterface):
         self._is_on_pause = False
 
     def __cache(self, key, fun):
-        value = self.cache.get(key, None)
-        if value:
-            return value
-        self.cache[key] = fun()
-        return self.cache[key]
+        try:
+            return self.cache[key]
+        except KeyError:
+            self.cache[key] = fun()
+            return self.cache[key]
 
     def __tasks(self):
         return [Pyro5.api.Proxy(uri) for uri in self.uris]
