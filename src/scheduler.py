@@ -210,46 +210,6 @@ class Task:
     def auto_adjust(self, auto_adjust: bool):
         self._auto_adjust = auto_adjust
 
-class TaskProxy:
-    def __init__(self, uri):
-        self.uri = uri
-        self.task = None
-        self.cache = {}
-
-    def __attempt(self, func, *args, **kwargs):
-        for _ in range(2):
-            if not self.task:
-                try:
-                    self.task = Pyro5.api.Proxy(self.uri)
-                except Pyro5.errors.PyroError:
-                    debug('Failed to create proxy for %s' % self.uri)
-            if self.task:
-                try:
-                    attr = getattr(self.task, func)
-                    if callable(attr):
-                        return attr(*args, **kwargs)
-                    return attr
-                except Pyro5.errors.PyroError:
-                    debug('Failed to communicate with task %s' % self.uri)
-                    self.task = None
-        raise RuntimeError('Could not communicate with task %s' % self.uri)
-
-    def __getattr__(self, attr):
-        if attr in self.cache:
-            return self.cache[attr]
-        if attr in ['priority', 'power', 'auto_adjust', 'desc', 'keys']:
-            self.cache[attr] = self.__attempt(attr)
-            return self.cache[attr]
-        def inner(*args, **kwargs):
-            # if attr in ['is_running', 'is_runnable', 'is_stoppable']:
-            #     self.cache[attr] = self.__attempt(attr, *args, **kwargs)
-            #     return self.cache[attr]
-            return self.__attempt(attr, *args, **kwargs)
-        return inner
-
-    def __eq__(self, other):
-        return self.uri == other.uri
-
 class PowerUsageSlidingWindow():
     '''Provide power usage analysis functions.
 
@@ -457,8 +417,7 @@ class Scheduler(SchedulerInterface):
         return self.cache[key]
 
     def __tasks(self):
-        # TODO: go back to return [Pyro5.api.Proxy(uri) for uri in self.uris] ?
-        return [TaskProxy(uri) for uri in self.uris]
+        return [Pyro5.api.Proxy(uri) for uri in self.uris]
 
     @property
     def tasks(self):
