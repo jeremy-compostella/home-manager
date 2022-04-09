@@ -32,6 +32,7 @@ import logging
 import os
 import re
 import shelve
+import signal
 import sqlite3
 import sys
 import traceback
