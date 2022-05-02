@@ -17,14 +17,14 @@ I decided to focus on the following four devices (in order of priority):
 3.  The water heater
 4.  The pool pump
 
-An optimization system also requires metrics.  My motivation being environmental and knowing that the utility companies of my city are mostly producing electricity out of fossil energies, I decided to measure the performance of the system as the ratio of energy used from the solar panel over the total energy used. It means that the objective of the system is to fit as much as possible the home electricity needs in the time frame the solar panels are producing.
+An optimization system also requires metrics.  My motivation being environmental and knowing that a significant part of the electricity produced by the utility companies of my city come from fossil energies, I decided to measure the performance of the system as the ratio of energy used from the solar panel over the total energy used. It means that the objective of the system is to fit as much as possible the home electricity needs in the time frame the solar panels are producing.
 
 I have defined two measurable goals:
 
 1.  The electric car should be charged at 100% with solar produced energy
 2.  The home energy consumption (including the car charger) must be covered at more than two third by the solar energy
 
-As of today, between `June 2021` and `April 2022`, the entire home energy consumption has been covered by solar energy at `66%`.
+As of today, between `June 2021` and `May 2022`, the entire home energy consumption has been covered by solar energy at `68%`.
 
 The following diagram represents the distribution of the energy consumption of my home per month since I started this project. It also includes the per-month ratio of energy used which originated from the solar panels (in light blue).
 
