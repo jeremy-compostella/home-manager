@@ -79,12 +79,13 @@ Optimizing requires having good understanding of what to optimize. In this parti
 		'pool': 'Pool Pump',
 		'range': 'Kitchen Range',
 		'other': 'Other'}
+  colors = ['tab:cyan', 'tab:green', 'gold', 'tab:blue', 'tab:red', 'tab:brown']
   sizes = [sum(100 * record[key] / total for record in data) \
 	   for key in dev_labels]
   explode = (0, 0, 0, 0, 0, 0)
   fig1, ax1 = plt.subplots()
   ax1.pie(sizes, explode=explode, labels=dev_labels.values(),
-	  autopct='%.0f%%', shadow=True, startangle=90)
+	  autopct='%.0f%%', shadow=True, startangle=90, colors=colors)
   ax1.axis('equal')
 
   fname = 'doc/images/yearly_energy_consumption_distribution.svg'
