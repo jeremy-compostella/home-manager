@@ -281,6 +281,8 @@ class HVACTask(Task, Sensor):
     def read(self, **kwargs):
         if 'temperatures' not in self.cache:
             sensors = self._load('sensors', 'remote_sensors')
+            # Filter out invalid or non-functional sensors
+            sensors = [s for s in sensors if s.capability[0].value.isnumeric()]
             temperatures = {s.name:int(s.capability[0].value) / 10 \
                             for s in sensors}
             self.cache['temperatures'] = temperatures
