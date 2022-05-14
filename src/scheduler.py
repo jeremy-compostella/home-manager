@@ -491,10 +491,11 @@ class Scheduler(SchedulerInterface):
                 try:
                     task = Pyro5.api.Proxy(uri)
                     priority = task.priority
+                    running = task.is_running()
                     break
                 except Pyro5.errors.CommunicationError:
                     time.sleep(1)
-            if isinstance(priority, int):
+            if isinstance(priority, int) and isinstance(running, bool):
                 continue
             name = self.__task_name(task)
             debug('Communication error with %s, removing...' %  name)
