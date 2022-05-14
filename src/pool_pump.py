@@ -333,7 +333,7 @@ def already_ran_today_for(min_power = .5):
 
 def configure_cycle(task, power_simulator, weather, pool_sensor):
     '''Compute and set the current cycle target time and runtime.'''
-    fun = interp1d([52, 75], [60, 4.5 * 60], fill_value=(60, 4.5 * 60),
+    fun = interp1d([52, 75], [60, 5 * 60], fill_value=(60, 5 * 60),
                        bounds_error=False)
     try:
         _, target_time = power_simulator.next_power_window(task.power)
