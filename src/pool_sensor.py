@@ -114,8 +114,11 @@ def main():
             if sensor._temperature == new_sensor._temperature:
                 debug('New sensor temperature is the same.')
                 monitor.track('pool sensor operational', False)
+                new_sensor._latest_update = sensor._latest_update
             sensor = new_sensor
             uri = daemon.register(sensor)
+        else:
+            monitor.track('pool sensor operational', True)
 
         try:
             NameServer().register_sensor('pool', uri)
@@ -123,11 +126,18 @@ def main():
             log_exception('Failed to register the sensor',
                           *sys.exc_info())
 
-        sockets, _, _ = select(daemon.sockets, [], [],
-                               # pylint: disable=maybe-no-member
-                               settings.max_loop_duration)
-        if sockets:
-            daemon.events(sockets)
+        next_cycle = datetime.now() + timedelta(
+            # pylint: disable=maybe-no-member
+            seconds=settings.max_loop_duration)
+        while True:
+            timeout = next_cycle - datetime.now()
+            sockets, _, _ = select(daemon.sockets, [], [],
+                                   timeout.seconds
+                                   + timeout.microseconds / 1000000)
+            if sockets:
+                daemon.events(sockets)
+            if datetime.now() >= next_cycle:
+                break
 
 if __name__ == "__main__":
     main()
