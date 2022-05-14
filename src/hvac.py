@@ -43,6 +43,7 @@ import pyecobee
 import Pyro5.api
 import pytz
 import requests
+import simplejson
 from cachetools import TTLCache
 from dateutil import parser
 from pyecobee import HoldType, Selection, SelectionType, Thermostat
@@ -310,7 +311,8 @@ class HVACTask(Task, Sensor):
                     self.ecobee.refresh_tokens()
                 else:
                     log_exception('Unexpected exception', *sys.exc_info())
-            except requests.exceptions.RequestException:
+            except (simplejson.errors.JSONDecodeError,
+                    requests.exceptions.RequestException):
                 log_exception('Communication with the server failed',
                               *sys.exc_info())
         raise RuntimeError('%s(%s, %s) call failed' % (method, args, kwargs))
