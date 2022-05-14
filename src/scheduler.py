@@ -526,7 +526,7 @@ class Scheduler(SchedulerInterface):
         if len(self.running) <= 1 or not self.adjustable:
             return []
         min_priority = max([task.priority for task in self.adjustable])
-        for task in self.running:
+        for task in [task for task in self.running if task.is_stoppable()]:
             if not task.auto_adjust and task.priority < min_priority:
                 debug("%s prevents %s to run to their full potential" % \
                       (task.desc, [adj.desc for adj in self.adjustable]))
