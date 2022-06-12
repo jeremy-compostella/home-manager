@@ -310,10 +310,13 @@ class PoolPump(Task, Sensor):
     def adjust_priority(self):
         '''Update the priority according to the target time'''
         now = datetime.now()
-        if now < self.target_time <= now + self.remaining_runtime:
+        if now < self.target_time - self.remaining_runtime * 1.5 \
+           or self.remaining_runtime == timedelta():
+            self.priority = Priority.LOW
+        elif now < self.target_time - self.remaining_runtime:
             self.priority = Priority.MEDIUM
         else:
-            self.priority = Priority.LOW
+            self.priority = Priority.HIGH
 
 def already_ran_today_for(min_power = .5):
     '''Return how long the pool pump has been running today based.
