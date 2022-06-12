@@ -43,7 +43,6 @@ import requests
 from cachetools import TTLCache
 from wallbox import Wallbox
 
-from car_sensor import CarSensorProxy
 from power_sensor import RecordScale
 from scheduler import Priority, SchedulerProxy, Task
 from sensor import SensorReader
@@ -53,18 +52,56 @@ from watchdog import WatchdogProxy
 
 DEFAULT_SETTINGS = {'power_sensor_key': 'EV',
                     'min_available_current': 6,
-                    'cycle_length': 15,
-                    'max_state_of_charge': 79.6}
+                    'cycle_length': 15}
+
+CAR_SETTINGS = [{'name': 'Tesla Model 3',
+                 'sensor': 'model3_car',
+                 'max_state_of_charge': 101,
+                 'priority_thresholds': {Priority.URGENT: 15,
+                                         Priority.HIGH: 35,
+                                         Priority.MEDIUM: 100,
+                                         Priority.LOW: 101}},
+                {'name': 'Chevy Bolt EV',
+                 'sensor': 'car',
+                 'max_state_of_charge': 79.6,
+                 'priority_thresholds': {Priority.URGENT: 40,
+                                         Priority.HIGH: 55,
+                                         Priority.MEDIUM: 70,
+                                         Priority.LOW: 101}}]
 
 MODULE_NAME = 'car_charger'
 
 class Status(IntEnum):
     '''Wallbox charger states.'''
-    FULLY_CHARGED = -1          # TODO: identify and set the value
+    FULLY_CHARGED = 181
     UNPLUGGED = 161
     WAITING_FOR_NEXT_SCHEDULE = 179
     PAUSED = 182
     CHARGING = 194
+
+class CarParameter:
+    '''Represent car parameters.'''
+    def __init__(self, entries):
+        self.__dict__.update(entries)
+        self.sensor = SensorReader(entries['sensor'])
+        self.update()
+
+    @property
+    def state_of_charge(self):
+        '''Return current state of charge.'''
+        return self.data['state of charge']
+
+    def update(self):
+        '''Read from the car sensor and update parameters '''
+        data = self.sensor.read()
+        if not data:
+            raise RuntimeError("Could not get an update")
+        self.data = data
+        for priority in reversed(Priority):
+            # pylint: disable=maybe-no-member
+            if self.state_of_charge < self.priority_thresholds[priority]:
+                self.priority = priority
+                break
 
 class CarCharger(Task):
     '''Wallbox car charger Task.
@@ -73,14 +110,14 @@ class CarCharger(Task):
     charge rate based on produced power availability.
 
     '''
-    def __init__(self, wallbox: Wallbox, charger_id: int, settings: Settings):
-        Task.__init__(self, Priority.LOW, keys=[settings.power_sensor_key],
-                      auto_adjust=True)
+    def __init__(self, wallbox: Wallbox, charger_id: int, settings: Settings,
+                 car: CarParameter):
+        Task.__init__(self, keys=[settings.power_sensor_key], auto_adjust=True)
         self.wallbox = wallbox
         self.charger_id = charger_id
         self.settings = settings
-        self.cache = TTLCache(1, timedelta(seconds=3), datetime.now)
-        self.state_of_charge = None
+        self.car = car
+        self.cache = TTLCache(1, timedelta(seconds=15), datetime.now)
 
     def __call(self, name, *args):
         for _ in range(3):
@@ -102,7 +139,6 @@ class CarCharger(Task):
             return self.cache['status']
         except KeyError:
             status = self.__call('getChargerStatus')
-            debug('new cache status=%s' % status)
             self.cache['status'] = status
             return self.cache['status']
 
@@ -147,7 +183,7 @@ class CarCharger(Task):
     @Pyro5.api.expose
     def is_runnable(self):
         '''True if calling the 'start' function would initiate charging.'''
-        return self.state_of_charge < self.settings.max_state_of_charge \
+        return self.car.state_of_charge < self.car.max_state_of_charge \
             and self.status_id not in [Status.UNPLUGGED, Status.FULLY_CHARGED]
 
     @Pyro5.api.expose
@@ -163,8 +199,9 @@ class CarCharger(Task):
     @Pyro5.api.expose
     def desc(self):
         description = '%s(%s' % (self.__class__.__name__, self.priority.name)
-        if self.state_of_charge is not None:
-            description += ', %.1f%%' % self.state_of_charge
+        description += ', %s' % self.car.name
+        if self.car.state_of_charge is not None:
+            description += ', %.1f%%' % self.car.state_of_charge
         return description + ')'
 
     @property
@@ -172,15 +209,10 @@ class CarCharger(Task):
     def power(self):
         return self.min_available_current * .24
 
-    def adjust_priority(self, state_of_charge):
-        '''Update the priority according to the current state of charge'''
-        self.state_of_charge = state_of_charge
-        thresholds = {Priority.URGENT: 40, Priority.HIGH: 55,
-                      Priority.MEDIUM: 70, Priority.LOW: 101}
-        for priority in reversed(Priority):
-            if state_of_charge < thresholds[priority]:
-                self.priority = priority
-                break
+    @property
+    @Pyro5.api.expose
+    def priority(self):
+        return self.car.priority
 
     def current_rate_for(self, power):
         '''Return the appropriate current in Ampere for POWER in KWh.'''
@@ -194,6 +226,18 @@ class CarCharger(Task):
         if self.status['config_data']['max_charging_current'] != current:
             debug('Adjusting to %dA (%.2f KWh)' % (current, available))
             self.__call('setMaxChargingCurrent', current)
+
+def detect_plugged_in_car(cars):
+    '''Return the car currently plugged in.'''
+    for car in cars:
+        car.update()
+    for car in cars[:-1]:
+        try:
+            if car.data['is home'] and car.data['is plugged in']:
+                return car
+        except KeyError:
+            pass
+    return cars[-1]
 
 def main():
     '''Register and run the car charger task.'''
@@ -209,7 +253,9 @@ def main():
     device_id = int(config['device_id'])
     if device_id not in wallbox.getChargersList():
         raise RuntimeError('%d charger ID does not exist' % device_id)
-    task = CarCharger(wallbox, device_id, settings)
+    cars = [CarParameter(s) for s in CAR_SETTINGS]
+    task = CarCharger(wallbox, device_id, settings,
+                      detect_plugged_in_car(cars))
 
     Pyro5.config.COMMTIMEOUT = 5
     daemon = Pyro5.api.Daemon()
@@ -217,7 +263,6 @@ def main():
     uri = daemon.register(task)
     nameserver.register_task(MODULE_NAME, uri)
 
-    sensor = CarSensorProxy()
     power_sensor = SensorReader('power')
     power_simulator = SensorReader('power_simulator')
     scheduler = SchedulerProxy()
@@ -258,9 +303,9 @@ def main():
                 break
 
         try:
-            task.adjust_priority(sensor.read()['state of charge'])
+            task.car = detect_plugged_in_car(cars)
         except RuntimeError:
-            debug('Could not read current state of charge')
+            debug('Could not update current car')
 
         if not task.is_running():
             continue
