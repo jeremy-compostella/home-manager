@@ -73,7 +73,7 @@ class SensorReader(Sensor):
             if self.sensor:
                 try:
                     return getattr(self.sensor, method)(**kwargs)
-                except Pyro5.errors.PyroError:
+                except (Pyro5.errors.PyroError, Pyro5.errors.ConnectionClosedError):
                     log_exception('Communication failed with the %s sensor' %
                                   self.name, *sys.exc_info())
                     debug("".join(Pyro5.errors.get_pyro_traceback()))
