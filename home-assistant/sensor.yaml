@@ -67,3 +67,7 @@
       unique_id: sensor.rounded_pool_temperature
       value_template: '{{states("sensor.temperature_3") | round(1) }}'
       unit_of_measurement: "°F"
+    rounded_model3_car_daily_mileage:
+      entity_id: sensor.rounded_model3_car_daily_mileage
+      value_template: "{{states('sensor.model3_car_daily_mileage') | round(1) }}"
+      unit_of_measurement: "mi"

@@ -17,4 +17,7 @@ utility_meter:
   car_mileage:
     source: sensor.mileage
     cycle: daily
+  model3_car_daily_mileage:
+    source: sensor.odometer
+    cycle: daily
 alert: !include alert.yaml
