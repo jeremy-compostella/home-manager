@@ -351,8 +351,10 @@ def configure_cycle(task, power_simulator, weather, pool_sensor):
         task.remaining_runtime = remaining_runtime
         task.target_time = target_time
         debug('target_time updated to %s' % task.target_time)
+        return True
     except (ValueError, RuntimeError, sqlite3.OperationalError) as err:
         debug(str(err))
+        return False
 
 def main():
     '''Register and run the pool pump task.'''
@@ -389,9 +391,9 @@ def main():
         watchdog.kick(os.getpid())
 
         if datetime.now() > cycle_end:
-            configure_cycle(task, power_simulator, weather, pool_sensor)
-            cycle_end = datetime.combine(datetime.now().date(),
-                                          dtime(hour=23, minute=59))
+            if configure_cycle(task, power_simulator, weather, pool_sensor):
+                cycle_end = datetime.combine(datetime.now().date(),
+                                             dtime(hour=23, minute=59))
 
         try:
             task.update_remaining_runtime()
