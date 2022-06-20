@@ -127,3 +127,159 @@ The [pool\_pump](./doc/pool_pump.md) task (`home_manager.task.pool_pump`)  is re
 
 In term of pool filtering, keeping the pool water clean and clear of bacteria depends on the water/outdoor temperature and filtering time.  The [pool\_pump](./doc/pool_pump.md) uses the pool temperature or the minimal temperature within the next twenty four hours to decide how long the pool pump should be run for the day. The priority is adjusted as we get closer to the target time.
 
+
+# Financial and environmental results
+
+This section presents the financial and environmental impacts of our use of solar panels, EV cars and the optimization system presented above.
+
+
+## Home electricity
+
+Assuming a conservative 200 g/KWh of CO<sub>2</sub> for the electricity produced by our power utility compared to the 50 g/KWh of CO<sub>2</sub> from our solar panels, we reduces our carbon emission by **`1.1` ton of CO<sub>2</sub>** using the electricity from our solar panels.
+
+The following table presents our electricity bills without and with solar panels.
+
+<table id="org6b20825" border="1" cellspacing="0" frame="border" cellpadding="2" rules="all">
+
+
+<colgroup>
+<col  class="org-left" />
+
+<col  class="org-right" />
+
+<col  class="org-right" />
+
+<col  class="org-right" />
+</colgroup>
+<thead>
+<tr>
+<th scope="col" class="org-left">Month</th>
+<th scope="col" class="org-right">without - 2020</th>
+<th scope="col" class="org-right">with - 2021</th>
+<th scope="col" class="org-right">Savings</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td class="org-left">June</td>
+<td class="org-right">234</td>
+<td class="org-right">65.3</td>
+<td class="org-right">168.7</td>
+</tr>
+
+
+<tr>
+<td class="org-left">July</td>
+<td class="org-right">204.39</td>
+<td class="org-right">117.92</td>
+<td class="org-right">86.47</td>
+</tr>
+
+
+<tr>
+<td class="org-left">August</td>
+<td class="org-right">234.89</td>
+<td class="org-right">113.5</td>
+<td class="org-right">121.39</td>
+</tr>
+
+
+<tr>
+<td class="org-left">September</td>
+<td class="org-right">213.27</td>
+<td class="org-right">83.63</td>
+<td class="org-right">129.64</td>
+</tr>
+
+
+<tr>
+<td class="org-left">October</td>
+<td class="org-right">163.31</td>
+<td class="org-right">64.21</td>
+<td class="org-right">99.1</td>
+</tr>
+
+
+<tr>
+<td class="org-left">November</td>
+<td class="org-right">101.09</td>
+<td class="org-right">36.50</td>
+<td class="org-right">64.59</td>
+</tr>
+
+
+<tr>
+<td class="org-left">December</td>
+<td class="org-right">86.21</td>
+<td class="org-right">36.61</td>
+<td class="org-right">49.6</td>
+</tr>
+
+
+<tr>
+<td class="org-left">January</td>
+<td class="org-right">126.37</td>
+<td class="org-right">54.19</td>
+<td class="org-right">72.18</td>
+</tr>
+
+
+<tr>
+<td class="org-left">February</td>
+<td class="org-right">93.49</td>
+<td class="org-right">41.15</td>
+<td class="org-right">52.34</td>
+</tr>
+
+
+<tr>
+<td class="org-left">March</td>
+<td class="org-right">91.68</td>
+<td class="org-right">35.76</td>
+<td class="org-right">55.92</td>
+</tr>
+
+
+<tr>
+<td class="org-left">April</td>
+<td class="org-right">96.00</td>
+<td class="org-right">28.02</td>
+<td class="org-right">67.98</td>
+</tr>
+
+
+<tr>
+<td class="org-left">May</td>
+<td class="org-right">128.00</td>
+<td class="org-right">47.76</td>
+<td class="org-right">80.24</td>
+</tr>
+</tbody>
+
+<tbody>
+<tr>
+<td class="org-left">Total</td>
+<td class="org-right">1772.7</td>
+<td class="org-right">724.55</td>
+<td class="org-right">1048.15</td>
+</tr>
+</tbody>
+</table>
+
+In a year, we saved **USD `1048.15`** on our electricity bills. It means that the solar system installation will be entirely paid off in 13 years, assuming that the electricity rates do not increase and without taking into account the savings on cars presented below.
+
+
+## Cars and commute
+
+As of today, we have been driving `12,699` miles with our Bolt EV and `855` miles with our Model 3. I am purposefully excluding driving not powered by electricity from our home. We used a total of `3,751` KWh from our solar panels to charge the cars. Considering that we used this electricity instead of selling it back to our power utility it "cost" us **USD `105`**.
+
+If we assume we were driving a gas car with a mileage of 30 miles/gallon and an average gas price of 3.40 USD/gallon it would have cost us USD `1,396`. In short, it means that we saved **USD `1,291`** on gas.
+
+More importantly, assuming that a gallon of gas produces [8.887 kg of CO<sub>2</sub>](https://www.epa.gov/greenvehicles/greenhouse-gas-emissions-typical-passenger-vehicle) plus [30% since gas does not magically materializes at the gas station](https://innovationorigins.com/en/producing-gasoline-and-diesel-emits-more-co2-than-we-thought/). Including construction, installation and recycling, one KWh of electricity produced by our solar panels system creates 50g of CO<sub>2</sub>. Therefore we have avoided the emission of **`3.3` tons of CO<sub>2</sub>**.
+
+
+## Conclusion
+
+Our use of solar panels and electric cars to commute saves us about **USD 2,400 / per year** and reduces our carbon emissions by more than **4 tons of CO<sub>2</sub>/year**.
+

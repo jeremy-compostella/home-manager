@@ -1,13 +1,13 @@
 #+OPTIONS: toc:nil hidestars indent inlineimages
-#+OPTIONS: ^:nil
+#+OPTIONS: ^:{}
 #+AUTHOR: Jeremy Compostella <jeremy.compostella@gmail.com>
 #+EXPORT_FILE_NAME: README.md
 #+TITLE: Solar Power usage optimization in a residential home
 
 #+name: monthly-data
-#+begin_src python :session :exports none :results output
+#+begin_src python :session :exports none :results output :dir ./src
   from dateutil import parser
-  from src.tools import get_database
+  from tools import get_database
 
   def dict_factory(cursor, row):
       data = {}
@@ -474,3 +474,122 @@ The algorithm which compute the passive curve uses a three dimensional home ther
 The [[./doc/pool_pump.md][pool_pump]] task (~home_manager.task.pool_pump~)  is responsible of running the pool pump.
 
 In term of pool filtering, keeping the pool water clean and clear of bacteria depends on the water/outdoor temperature and filtering time.  The [[./doc/pool_pump.md][pool_pump]] uses the pool temperature or the minimal temperature within the next twenty four hours to decide how long the pool pump should be run for the day. The priority is adjusted as we get closer to the target time.
+* Financial and environmental results
+This section presents the financial and environmental impacts of our use of solar panels, EV cars and the optimization system presented above.
+** Home electricity
+Assuming a conservative 200 g/KWh of CO_{2} for the electricity produced by our power utility compared to the 50 g/KWh of CO_{2} from our solar panels, we reduces our carbon emission by *call_home-usage() {{{results(=1.1=)}}} ton of CO_{2}* using the electricity from our solar panels.
+
+The following table presents our electricity bills without and with solar panels.
+
+#+name: electricity-bills
+| Month     | without - 2020 | with - 2021 | Savings |
+|-----------+----------------+-------------+---------|
+| June      |            234 |        65.3 |   168.7 |
+| July      |         204.39 |      117.92 |   86.47 |
+| August    |         234.89 |       113.5 |  121.39 |
+| September |         213.27 |       83.63 |  129.64 |
+| October   |         163.31 |       64.21 |    99.1 |
+| November  |         101.09 |       36.50 |   64.59 |
+| December  |          86.21 |       36.61 |    49.6 |
+| January   |         126.37 |       54.19 |   72.18 |
+| February  |          93.49 |       41.15 |   52.34 |
+| March     |          91.68 |       35.76 |   55.92 |
+| April     |          96.00 |       28.02 |   67.98 |
+| May       |         128.00 |       47.76 |   80.24 |
+|-----------+----------------+-------------+---------|
+| Total     |         1772.7 |      724.55 | 1048.15 |
+#+tblfm: @>$3=vsum(@2..@-1)::@>$2=vsum(@2..@-1)::$4=$2-$3
+
+In a year, we saved *USD src_emacs-lisp[:var d=electricity-bills[15, 3]]{d} {{{results(=1048.15=)}}}* on our electricity bills. It means that the solar system installation will be entirely paid off in 13 years, assuming that the electricity rates do not increase and without taking into account the savings on cars presented below.
+** Cars and commute
+#+name: ev-charging-kwh
+#+begin_src python :session :exports none :results value :var data=monthly-data :dir ./src
+  data = eval(data)
+  '{:,}'.format(int(sum([d['ev'] for d in data])))
+#+end_src
+
+#+name: bolt-distance
+#+begin_src python :session :exports none :results output :dir ./src
+  from tools import get_database, db_dict_factory
+
+  with get_database() as database:
+      database.row_factory = db_dict_factory
+      cursor = database.cursor()
+      cursor.execute('SELECT * FROM car ORDER BY timestamp ASC LIMIT 1')
+      odometer_start = cursor.fetchone()['mileage']
+      cursor.execute('SELECT * FROM car ORDER BY timestamp DESC LIMIT 1')
+      odometer_end = cursor.fetchone()['mileage']
+  print('{:,}'.format(int(odometer_end - odometer_start)))
+#+end_src
+
+#+name: ev-charging-usd
+#+begin_src python :session :exports none :results value :var data=monthly-data :dir ./src
+  data = eval(data)
+  '{:,}'.format(int(sum([d['ev'] for d in data]) * 0.0282))
+#+end_src
+
+#+name: gas-equivalent-usd
+#+begin_src python :session :exports none :results value :dir ./src :var bolt=bolt-distance :var model3=model3-distance
+  '{:,}'.format(int((eval(bolt.replace(',', '')) + eval(model3.replace(',', ''))) / 33 * 3.4))
+#+end_src
+
+#+name: ev-savings-usd
+#+begin_src python :session :exports none :results value :dir ./src :var ev=ev-charging-usd :var gas=gas-equivalent-usd
+  '{:,}'.format(int(gas.replace(',', '')) - ev)
+#+end_src
+
+#+name: ev-savings-co2
+#+begin_src python :session :exports none :results value :dir ./src :var kwh=ev-charging-kwh :var bolt=bolt-distance :var model3=model3-distance
+  '%.1f' % ((((int(bolt.replace(',', '')) + int(model3)) / 30 * 8.887 * 1.3) - int(kwh.replace(',', '')) * 0.5) / 1000)
+#+end_src
+
+#+name: model3-distance
+#+begin_src python :session :exports none :results output :dir ./src
+  from tools import init, get_database, db_dict_factory
+  from geopy.geocoders import Nominatim
+  import geopy.distance
+
+  config = init(None)
+  locator = Nominatim(user_agent=config['general']['application'])
+  home = locator.geocode(config['general']['address'])
+
+  def is_close_to_home(latitude, longitude):
+      distance = geopy.distance.geodesic((home.latitude, home.longitude),
+                                         (latitude, longitude))
+      return distance.miles < 80
+
+  total = 0
+  with get_database() as database:
+      database.row_factory = db_dict_factory
+      cursor = database.cursor()
+      cursor.execute('SELECT * FROM model3_car ORDER BY timestamp ASC')
+      start = end = None
+      for current in cursor.fetchall():
+          end = current['odometer']
+          if not start and is_close_to_home(current['latitude'],
+                                            current['longitude']):
+              start = current['odometer']
+          if start and not is_close_to_home(current['latitude'],
+                                            current['longitude']):
+              total += end - start
+              start = end = None
+      if start and end:
+          total += end - start
+  print('{:,}'.format(int(total)))
+#+end_src
+
+As of today, we have been driving call_bolt-distance() {{{results(=12\,699=)}}} miles with our Bolt EV and call_model3-distance() {{{results(=855=)}}} miles with our Model 3. I am purposefully excluding driving not powered by electricity from our home. We used a total of call_ev-charging-kwh() {{{results(=3\,751=)}}} KWh from our solar panels to charge the cars. Considering that we used this electricity instead of selling it back to our power utility it "cost" us *USD call_ev-charging-usd() {{{results(=105=)}}}*.
+
+If we assume we were driving a gas car with a mileage of 30 miles/gallon and an average gas price of 3.40 USD/gallon it would have cost us USD call_gas-equivalent-usd() {{{results(=1\,396=)}}}. In short, it means that we saved *USD call_ev-savings-usd() {{{results(=1\,291=)}}}* on gas.
+
+More importantly, assuming that a gallon of gas produces [[https://www.epa.gov/greenvehicles/greenhouse-gas-emissions-typical-passenger-vehicle][8.887 kg of CO_{2}]] plus [[https://innovationorigins.com/en/producing-gasoline-and-diesel-emits-more-co2-than-we-thought/][30% since gas does not magically materializes at the gas station]]. Including construction, installation and recycling, one KWh of electricity produced by our solar panels system creates 50g of CO_{2}. Therefore we have avoided the emission of *call_ev-savings-co2() {{{results(=3.3=)}}} tons of CO_{2}*.
+
+#+name: home-usage
+#+begin_src python :session :exports none :results value :var data=monthly-data :dir ./src
+  data = eval(data)
+  print(data)
+  used=sum([d['solar'] - d['to_grid'] - d['ev'] for d in data])
+  '%.1f' % (((used * .200) - (used * 0.050)) / 1000)
+#+end_src
+** Conclusion
+Our use of solar panels and electric cars to commute saves us about *USD 2,400 / per year* and reduces our carbon emissions by more than *4 tons of CO_{2}/year*.
