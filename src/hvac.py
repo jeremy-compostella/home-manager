@@ -233,8 +233,14 @@ class HVACTask(Task, Sensor):
     @Pyro5.api.expose
     def meet_running_criteria(self, ratio, power=0):
         debug('meet_running_criteria(%.3f, %.3f)' % (ratio, power))
-        if self.priority == Priority.URGENT:
-            return True
+        run_time = max(timedelta(seconds=1),
+                       self._estimate_runtime(target=True, comfort=True))
+        min_ratio = min(1, .95 * self.param.max_available_power / self.power)
+        debug('min ratio=%s'
+              % min(1, .95 * self.param.max_available_power / self.power))
+        if self.param.target_time - datetime.now() < run_time:
+            coefficient = (self.param.target_time - datetime.now()) / run_time
+            return ratio >= min_ratio * coefficient * coefficient
         if self.is_running():
             if self._deviation(comfort=True) * self.hvac_mode.value > 0:
                 debug('Target has been reached')
@@ -244,8 +250,6 @@ class HVACTask(Task, Sensor):
                     and ratio >= min(1, .9 * self.param.max_available_power / power) \
                     and power > self.power * 1/3
             return True
-        debug('min ratio=%s'
-              % min(1, .95 * self.param.max_available_power / self.power))
         return ratio >= min(1, .95 * self.param.max_available_power / self.power)
 
     @Pyro5.api.expose
