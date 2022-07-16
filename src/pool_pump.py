@@ -75,7 +75,7 @@ class Ewelink:
     def __init__(self, login, password, timeout=5, region='us'):
         self._credentials = {'login': login, 'password': password}
         self._timeout = timeout
-        self._info = {'base': 'https://{}-api.coolkit.cc:8080/'.format(region)}
+        self._info = {'base': f'https://{region}-api.coolkit.cc:8080/'}
         self._cache = TTLCache(1, timedelta(seconds=60), datetime.now)
         self._login()
 
@@ -109,7 +109,7 @@ class Ewelink:
                                   json=data, timeout=self._timeout)
         if not resp.ok:
             print(resp)
-            raise RuntimeError('Ewelink: Failed to POST %s' % path)
+            raise RuntimeError(f'Ewelink: Failed to POST {path}')
         return resp.json()
 
     def _get(self, path, params):
@@ -119,7 +119,7 @@ class Ewelink:
                                      headers=self._headers,
                                      timeout=self._timeout)
             if not resp.ok:
-                raise RuntimeError('Ewelink: Failed to GET %s' % path)
+                raise RuntimeError(f'Ewelink: Failed to GET {path}')
             res = resp.json()
             if res.get('error', None) == 406:
                 debug('GET error, logging-in...')
@@ -174,8 +174,7 @@ class Ewelink:
             if 'domain' not in resp:
                 raise RuntimeError('Ewelink: Failed to read websocket domain')
             self._info['domain'] = resp['domain']
-        websocket = create_connection('wss://%s:8080/api/ws'
-                                      % self._info['domain'],
+        websocket = create_connection(f'wss://{self._info["domain"]}:8080/api/ws',
                                       timeout=self._timeout)
         timestamp = int(time.time())
         payload = self._base_payload()
@@ -198,7 +197,7 @@ class Ewelink:
         websocket.close()
         self._cache.pop('devices', None)
         if json.loads(resp)['error'] != 0:
-            raise RuntimeError('Ewelink: action %s failed' % payload['action'])
+            raise RuntimeError(f'Ewelink: action {payload["action"]} failed')
 
 class PoolPump(Task, Sensor):
     '''This task uses a Migro switch to control a pool pump. '''
@@ -227,7 +226,7 @@ class PoolPump(Task, Sensor):
                                                 self.started_at)
         if self.remaining_runtime < timedelta():
             self.remaining_runtime = timedelta()
-        debug('Remaining runtime: %s' % self.remaining_runtime)
+        debug(f'Remaining runtime: {self.remaining_runtime}')
         self.last_update = now
 
     @Pyro5.api.expose
@@ -255,7 +254,7 @@ class PoolPump(Task, Sensor):
             device = self._ewelink[self._id]
         except KeyError:
             #pylint: disable=raise-missing-from
-            raise RuntimeError('Ewelink: could not find %s device' % self._id)
+            raise RuntimeError(f'Ewelink: could not find {self._id} device')
         return device['params']['switch'] == 'on'
 
     def has_been_running_for(self):
@@ -280,7 +279,7 @@ class PoolPump(Task, Sensor):
 
     @Pyro5.api.expose
     def meet_running_criteria(self, ratio, power=0) -> bool:
-        debug('meet_running_criteria(%.3f, %.3f)' % (ratio, power))
+        debug(f'meet_running_criteria({ratio:.3f}, {power:.3f})')
         if self.has_been_running_for() > timedelta(minutes=2):
             self.healthy = power > .2
             self._powers.append(power)
@@ -324,7 +323,7 @@ def already_ran_today_for(min_power = .5):
     It uses the database power table.'''
     with get_database() as database:
         minutes = 0
-        req = 'SELECT %s FROM power ' % DEFAULT_SETTINGS['power_sensor_key']
+        req = f'SELECT {DEFAULT_SETTINGS["power_sensor_key"]} FROM power '
         req += 'WHERE timestamp >= \'%s\'' \
             % datetime.now().strftime('%Y-%m-%d 00:00:00')
         cursor = database.cursor()
@@ -350,7 +349,7 @@ def configure_cycle(task, power_simulator, weather, pool_sensor):
             remaining_runtime -= already_ran_today_for(task.power / 4)
         task.remaining_runtime = remaining_runtime
         task.target_time = target_time
-        debug('target_time updated to %s' % task.target_time)
+        debug(f'target_time updated to {task.target_time}')
         return True
     except (ValueError, RuntimeError, sqlite3.OperationalError) as err:
         debug(str(err))
@@ -366,7 +365,7 @@ def main():
 
     ewelink = Ewelink(config['login'], config['password'])
     if config['device_id'] not in ewelink:
-        raise RuntimeError('%s device does not exist' % config['device_id'])
+        raise RuntimeError(f'{config["device_id"]} device does not exist')
     task = PoolPump(config['device_id'], ewelink, settings)
 
     Pyro5.config.COMMTIMEOUT = 5
@@ -383,7 +382,7 @@ def main():
     monitor = MonitorProxy()
     pool_sensor = SensorReader('pool')
     cycle_end = datetime.min
-    debug("... is now ready to run")
+    debug('... is now ready to run')
     while True:
         settings.load()
 
@@ -443,5 +442,5 @@ def main():
         except RuntimeError:
             log_exception('Could not adjust priority', *sys.exc_info())
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
