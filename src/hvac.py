@@ -150,8 +150,7 @@ class HVACTask(Task, Sensor):
         duration = self._estimate_runtime(comfort=True)
         target = self.param.optimal_temp
         target += mode.value * self.settings.temperature_offset
-        debug('Starting for %s with thermostat set at %.1f°F'
-              % (duration, target))
+        debug(f'Starting for {duration} with thermostat set at {target:.1f}°F')
         resp = self.__attempt('set_hold',
                               **{'hold_type': HoldType.HOLD_HOURS,
                                  'hold_hours': ceil(duration.seconds * 2 / 3600),
@@ -232,7 +231,7 @@ class HVACTask(Task, Sensor):
 
     @Pyro5.api.expose
     def meet_running_criteria(self, ratio, power=0):
-        debug('meet_running_criteria(%.3f, %.3f)' % (ratio, power))
+        debug(f'meet_running_criteria({ratio:.3f}, {power:.3f})')
         run_time = max(timedelta(seconds=1),
                        self._estimate_runtime(target=True, comfort=True))
         min_ratio = min(1, .95 * self.param.max_available_power / self.power)
@@ -320,7 +319,7 @@ class HVACTask(Task, Sensor):
                     requests.exceptions.RequestException):
                 log_exception('Communication with the server failed',
                               *sys.exc_info())
-        raise RuntimeError('%s(%s, %s) call failed' % (method, args, kwargs))
+        raise RuntimeError(f'{method}({args}, {kwargs}) call failed')
 
     def _load(self, information, field=None):
         '''Load 'information' from the Ecobee server.
@@ -382,7 +381,7 @@ def register(name, uri, raise_exception=True):
         for qualifier in ['sensor', 'task']:
             NameServer().register(qualifier, name, uri)
     except RuntimeError as err:
-        log_exception('Failed to register as %s' % qualifier, *sys.exc_info())
+        log_exception(f'Failed to register as {qualifier}', *sys.exc_info())
         if raise_exception:
             raise err
 
@@ -453,7 +452,7 @@ class HVACParam(threading.Thread):
         available -= 0.0001
         with self._lock:
             self._data['max_available_power'] = available
-            debug('max_available_power updated to %s' % available)
+            debug(f'max_available_power updated to {available}')
 
     def _update_target_time(self):
         power = self.max_available_power
@@ -465,10 +464,10 @@ class HVACParam(threading.Thread):
             if hvac_power >= power:
                 with self._lock:
                     self._data['target_time'] = target_time
-                    debug('Target time updated to %s' % target_time)
-                    debug('Power at target time is %s' % hvac_power)
+                    debug(f'Target time updated to {target_time}')
+                    debug(f'Power at target time is {hvac_power}')
                 break
-            debug('new power is %s' % hvac_power)
+            debug(f'new power is {hvac_power}')
             power = hvac_power
 
     def _compute_passive_curve(self, start, end, end_temp, precision=0.1):
@@ -570,7 +569,7 @@ def main():
     thermostats = ecobee.request_thermostats(sel).thermostat_list
     thermostat = next(t for t in thermostats if int(t.identifier) == device_id)
     if not thermostat:
-        debug('%d device does not exist' % device_id)
+        debug(f'{device_id} device does not exist')
         sys.exit(os.EX_DATAERR)
 
     param = HVACParam(WeatherProxy(timeout=3), PowerSimulatorProxy(), settings)
