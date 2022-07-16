@@ -57,7 +57,7 @@
   total = sum([record['local'] + record['from_grid'] for record in data])
   # devices = sum(sum(record[d] for d in ['ev', 'hvac', 'water_heater']) \
   devices = sum(sum(record[d] for d in devices.split(',')) \
-		for record in data)
+                for record in data)
   '%d%%' % round(100 * devices / total)
 #+end_src
 * Introduction
@@ -74,18 +74,18 @@ Optimizing requires having good understanding of what to optimize. In this parti
   data = eval(data)
   total = sum([record['local'] + record['from_grid'] for record in data])
   dev_labels = {'hvac': 'HVAC',
-		'ev': 'Electric Car',
-		'water_heater': 'Water Heater',
-		'pool': 'Pool Pump',
-		'range': 'Kitchen Range',
-		'other': 'Other'}
+                'ev': 'Electric Car',
+                'water_heater': 'Water Heater',
+                'pool': 'Pool Pump',
+                'range': 'Kitchen Range',
+                'other': 'Other'}
   colors = ['tab:cyan', 'tab:green', 'gold', 'tab:blue', 'tab:red', 'tab:brown']
   sizes = [sum(100 * record[key] / total for record in data) \
-	   for key in dev_labels]
+           for key in dev_labels]
   explode = (0, 0, 0, 0, 0, 0)
   fig1, ax1 = plt.subplots()
   ax1.pie(sizes, explode=explode, labels=dev_labels.values(),
-	  autopct='%.0f%%', shadow=True, startangle=90, colors=colors)
+          autopct='%.0f%%', shadow=True, startangle=90, colors=colors)
   ax1.axis('equal')
 
   fname = 'doc/images/yearly_energy_consumption_distribution.svg'
@@ -110,7 +110,7 @@ I have defined two measurable goals:
 1. The electric car should be charged at 100% with solar produced energy
 2. The home energy consumption (including the car charger) must be covered at more than two third by the solar energy
 
-As of today, between call_db-first-month() {{{results(=June 2021=)}}} and call_db-last-month() {{{results(=June 2022=)}}}, the entire home energy consumption has been covered by solar energy at call_powered-by-solar() {{{results(=69%=)}}}.
+As of today, between call_db-first-month() {{{results(=June 2021=)}}} and call_db-last-month() {{{results(=July 2022=)}}}, the entire home energy consumption has been covered by solar energy at call_powered-by-solar() {{{results(=68%=)}}}.
 
 The following diagram represents the distribution of the energy consumption of my home per month since I started this project. It also includes the per-month ratio of energy used which originated from the solar panels (in light blue).
 #+begin_src python :session: :results file :exports results :var data=monthly-data
@@ -118,12 +118,12 @@ The following diagram represents the distribution of the energy consumption of m
   import numpy as np
 
   LABELS = {'pool': 'Pool',
-	    'water_heater': 'Water heater',
-	    'hvac': 'HVAC',
-	    'range': 'Kitchen range',
-	    'ev': 'Electric Vehicle',
-	    'dryer': 'Dryer',
-	    'other': 'Other'}
+            'water_heater': 'Water heater',
+            'hvac': 'HVAC',
+            'range': 'Kitchen range',
+            'ev': 'Electric Vehicle',
+            'dryer': 'Dryer',
+            'other': 'Other'}
 
   data = eval(data)
   width = 0.35
@@ -132,31 +132,31 @@ The following diagram represents the distribution of the energy consumption of m
 
   x = np.arange(len(data))
   ax.bar(x - width/2,
-	 [record['local'] for record in data],
-	 width, bottom=[record['from_grid'] for record in data],
-	 label='Energy from the solar production', color='lightblue')
+         [record['local'] for record in data],
+         width, bottom=[record['from_grid'] for record in data],
+         label='Energy from the solar production', color='lightblue')
   ax.bar(x - width/2, [record['from_grid'] for record in data],
-	 width, label='Energy from the grid', color='lightcoral')
+         width, label='Energy from the grid', color='lightcoral')
 
   for i, record in enumerate(data):
       ax.text(i - width/2 - .1, record['from_grid'] + record['local'] + 20,
-	      '%d%%' % round(record['local'] / (record['local'] + record['from_grid']) * 100),
-	      color='lightblue', fontweight='bold')
+              '%d%%' % round(record['local'] / (record['local'] + record['from_grid']) * 100),
+              color='lightblue', fontweight='bold')
 
   prev = [0.0 for _ in data]
   COLORS = {'pool':"tab:blue",
-	    'water_heater': 'gold',
-	    'hvac': 'tab:cyan',
-	    'range': 'tab:red',
-	    'ev': 'tab:green',
-	    'dryer': 'tab:orange',
-	    'other': 'lightgrey'}
+            'water_heater': 'gold',
+            'hvac': 'tab:cyan',
+            'range': 'tab:red',
+            'ev': 'tab:green',
+            'dryer': 'tab:orange',
+            'other': 'lightgrey'}
   for consumer in ['pool', 'water_heater', 'hvac', 'range',
-		   'ev', 'dryer', 'other']:
+                   'ev', 'dryer', 'other']:
       ax.bar(x + width/2 + .01,
-	     [record[consumer] for record in data],
-	     width, bottom=prev, label=LABELS[consumer],
-	     color=COLORS[consumer])
+             [record[consumer] for record in data],
+             width, bottom=prev, label=LABELS[consumer],
+             color=COLORS[consumer])
       prev = [a + b for a, b in zip([record[consumer] for record in data], prev)]
 
   ax.set(ylabel='kWh')
@@ -235,18 +235,18 @@ The following power consumption diagram shows the scheduler starting and stoppin
 
   def load_from_db(table, where):
       with get_database() as database:
-	  database.row_factory = db_dict_factory
-	  req = 'SELECT * FROM %s %s ORDER BY timestamp' % (table, where)
-	  cursor = database.cursor()
-	  cursor.execute(req)
-	  return cursor.fetchall()
+          database.row_factory = db_dict_factory
+          req = 'SELECT * FROM %s %s ORDER BY timestamp' % (table, where)
+          cursor = database.cursor()
+          cursor.execute(req)
+          return cursor.fetchall()
 
   CONSUMERS={'Pool': ['pool'],
-	     'Water heater': ['water_heater'],
-	     'HVAC': ['a_c', 'air_handler'],
-	     'Kitchen range': ['range'],
-	     'Car': ['ev'],
-	     'Dryer': ['dryer']}
+             'Water heater': ['water_heater'],
+             'HVAC': ['a_c', 'air_handler'],
+             'Kitchen range': ['range'],
+             'Car': ['ev'],
+             'Dryer': ['dryer']}
 
   where = 'WHERE timestamp > \'' + START_TIME_STR + \
       '\' and timestamp < \'' + END_TIME_STR + '\''
@@ -255,24 +255,24 @@ The following power consumption diagram shows the scheduler starting and stoppin
       cur['timestamp'] = parser.parse(cur['timestamp'])
   fig, axes = plt.subplots()
   axes.stackplot([x['timestamp'] for x in val],
-	       [ x - y for (x, y) in zip([x['net'] for x in val],
-					 [x['solar'] for x in val])],
-	       labels=["Other"],
-	       colors=['lightgrey', "tab:blue", "gold", "tab:cyan",
-		       "tab:red", "tab:green", "tab:orange"])
+               [ x - y for (x, y) in zip([x['net'] for x in val],
+                                         [x['solar'] for x in val])],
+               labels=["Other"],
+               colors=['lightgrey', "tab:blue", "gold", "tab:cyan",
+                       "tab:red", "tab:green", "tab:orange"])
   axes.stackplot([x['timestamp'] for x in val],
-	       [[sum([x[key] for key in keys]) for x in val] \
-		for name, keys in CONSUMERS.items()],
-	       labels=CONSUMERS.keys())
+               [[sum([x[key] for key in keys]) for x in val] \
+                for name, keys in CONSUMERS.items()],
+               labels=CONSUMERS.keys())
   axes.plot([x['timestamp'] for x in val],
-	  [abs(x['solar']) for x in val], color='black',
-	  label='Solar Panels power', lw=.8)
+          [abs(x['solar']) for x in val], color='black',
+          label='Solar Panels power', lw=.8)
   axes.legend(loc='best')
   plt.grid(which='major', linestyle='dotted')
   axes.set(xlabel="Time",
-	 ylabel="Power (KW)")
+         ylabel="Power (KW)")
   plt.gca().set_title('Power consumption on %s'
-		      % START_TIME.strftime('%B %-d %Y'))
+                      % START_TIME.strftime('%B %-d %Y'))
   date_form = DateFormatter("%H:%M")
   plt.gca().xaxis.set_major_formatter(date_form)
   plt.tight_layout()
@@ -343,85 +343,85 @@ Once the hvac module has determined a target time, it automatically computes the
   GOAL_TEMP = 73
 
   def load_from_db(table, where):
-	 with get_database() as database:
-	     database.row_factory = db_dict_factory
-	     req = 'SELECT * FROM %s %s ORDER BY timestamp' % (table, where)
-	     cursor = database.cursor()
-	     cursor.execute(req)
-	     return cursor.fetchall()
+         with get_database() as database:
+             database.row_factory = db_dict_factory
+             req = 'SELECT * FROM %s %s ORDER BY timestamp' % (table, where)
+             cursor = database.cursor()
+             cursor.execute(req)
+             return cursor.fetchall()
 
   def time_to_minute(time):
-	 return (parser.parse(time) - parser.parse(START_TIME_STR)).seconds / 60
+         return (parser.parse(time) - parser.parse(START_TIME_STR)).seconds / 60
 
   def build_passive_curve(model, start, end, end_temp, outdoor, precision=0.1):
-	 temperature = end_temp
-	 minutes = int((end - start).total_seconds() / 60)
-	 if minutes == 0:
-	     raise RuntimeError('Not enough time to estimate')
-	 start_temp = temperature
-	 step = max_step = round(minutes / 20)
-	 while True:
-	     tmp = start_temp
-	     curve_data = []
-	     for minute in range(0, minutes, step):
-		 if step == 1:
-		     curve_data.append(tmp)
-		 temp_at = outdoor(minute)
-		 tmp += (step * model.degree_per_minute(tmp, temp_at))
-	     deviation = temperature - tmp
-	     if abs(deviation) < precision:
-		 if step == 1:
-		     break
-		 step = 1
-	     else:
-		 step = max(1, min(max_step, floor(abs(deviation) * max_step)))
-	     start_temp += deviation * 2 /3
+         temperature = end_temp
+         minutes = int((end - start).total_seconds() / 60)
+         if minutes == 0:
+             raise RuntimeError('Not enough time to estimate')
+         start_temp = temperature
+         step = max_step = round(minutes / 20)
+         while True:
+             tmp = start_temp
+             curve_data = []
+             for minute in range(0, minutes, step):
+                 if step == 1:
+                     curve_data.append(tmp)
+                 temp_at = outdoor(minute)
+                 tmp += (step * model.degree_per_minute(tmp, temp_at))
+             deviation = temperature - tmp
+             if abs(deviation) < precision:
+                 if step == 1:
+                     break
+                 step = 1
+             else:
+                 step = max(1, min(max_step, floor(abs(deviation) * max_step)))
+             start_temp += deviation * 2 /3
 
-	 times = [start + timedelta(minutes=x) for x in range(0, minutes)]
-	 return times, curve_data
+         times = [start + timedelta(minutes=x) for x in range(0, minutes)]
+         return times, curve_data
 
   def load_corrections(where):
-	 power = load_from_db('power', where)
-	 corrections = []
-	 in_correction = False
-	 current = {}
-	 for usage in power:
-	     hvac_power = usage['a_c'] + usage['air_handler']
-	     if in_correction and hvac_power < 0.3:
-		 current['end'] = parser.parse(usage['timestamp'])
-		 corrections.append(current)
-		 in_correction = False
-	     elif not in_correction and hvac_power >= 4.5:
-		 in_correction = True
-		 current = {'start': parser.parse(usage['timestamp'])
-				     - timedelta(minutes=1)}
-	 return corrections
+         power = load_from_db('power', where)
+         corrections = []
+         in_correction = False
+         current = {}
+         for usage in power:
+             hvac_power = usage['a_c'] + usage['air_handler']
+             if in_correction and hvac_power < 0.3:
+                 current['end'] = parser.parse(usage['timestamp'])
+                 corrections.append(current)
+                 in_correction = False
+             elif not in_correction and hvac_power >= 4.5:
+                 in_correction = True
+                 current = {'start': parser.parse(usage['timestamp'])
+                                     - timedelta(minutes=1)}
+         return corrections
   print('ici')
   where = 'WHERE timestamp > \'' + START_TIME_STR + \
-	 '\' and timestamp < \'' + END_TIME_STR + '\''
+         '\' and timestamp < \'' + END_TIME_STR + '\''
   weather = load_from_db('weather', where)
   plt.plot([parser.parse(item['timestamp']) for item in weather],
-	      [item['temperature'] for item in weather],
-	      label='Outdoor temperature')
+              [item['temperature'] for item in weather],
+              label='Outdoor temperature')
 
   hvac = load_from_db('hvac', where)
   plt.plot([parser.parse(item['timestamp']) for item in hvac],
-	      [item['home'] for item in hvac], label='Home temperature')
+              [item['home'] for item in hvac], label='Home temperature')
 
   outdoor_temp = interp1d([time_to_minute(current['timestamp']) \
-			      for current in weather],
-			     [current['temperature'] \
-			      for current in weather], fill_value='extrapolate')
+                              for current in weather],
+                             [current['temperature'] \
+                              for current in weather], fill_value='extrapolate')
   model = HomeModel()
   times, passive_curve = build_passive_curve(model, START_TIME, END_TIME,
-						GOAL_TEMP, outdoor_temp)
+                                                GOAL_TEMP, outdoor_temp)
   plt.plot(times, passive_curve,
-	      '--', color='green',
-	      label='Passive temperature curve')
+              '--', color='green',
+              label='Passive temperature curve')
   corrections = load_corrections(where)
   for i, correction in enumerate(corrections):
-	 plt.axvspan(correction['start'], correction['end'], facecolor='pink',
-		     label=i*'_' + 'The system is adjusting indoor temperature using the HVAC')
+         plt.axvspan(correction['start'], correction['end'], facecolor='pink',
+                     label=i*'_' + 'The system is adjusting indoor temperature using the HVAC')
 
   date_form = DateFormatter("%H:%M")
   plt.gca().set(xlabel='Time', ylabel='°F')
@@ -430,17 +430,17 @@ Once the hvac module has determined a target time, it automatically computes the
   plt.gca().xaxis.set_major_formatter(date_form)
   plt.gca().yaxis.tick_right()
   plt.gca().tick_params(left=True, labelleft=True,
-			   labelright=True, right=True)
+                           labelright=True, right=True)
   plt.gca().legend(loc='best')
   plt.grid(which='major', linestyle='dotted')
   min_temp = floor(min(min([x['home'] for x in hvac]),
-			  min([x['temperature'] for x in weather]),
-			  min(passive_curve))) - 1
+                          min([x['temperature'] for x in weather]),
+                          min(passive_curve))) - 1
   max_temp = ceil(max(max([x['home'] for x in hvac]),
-			 max([x['temperature'] for x in weather]),
-			 max(passive_curve))) + 1
+                         max([x['temperature'] for x in weather]),
+                         max(passive_curve))) + 1
   if min_temp % 2 == 0 and GOAL_TEMP % 2 != 0:
-	 min_temp -= 1
+         min_temp -= 1
   plt.gca().set_yticks(np.arange(min_temp, max_temp, step=2))
   plt.xlim(START_TIME, END_TIME)
   plt.gcf().tight_layout()
@@ -477,7 +477,7 @@ In term of pool filtering, keeping the pool water clean and clear of bacteria de
 * Financial and environmental results
 This section presents the financial and environmental impacts of our use of solar panels, EV cars and the optimization system presented above.
 ** Home electricity
-Assuming a conservative 200 g/KWh of CO_{2} for the electricity produced by our power utility compared to the 50 g/KWh of CO_{2} from our solar panels, we reduces our carbon emission by *call_home-usage() {{{results(=1.1=)}}} ton of CO_{2}* using the electricity from our solar panels.
+Assuming a conservative 200 g/KWh of CO_{2} for the electricity produced by our power utility compared to the 50 g/KWh of CO_{2} from our solar panels, we reduces our carbon emission by *call_home-usage() {{{results(=1.2=)}}} ton of CO_{2}* using the electricity from our solar panels.
 
 The following table presents our electricity bills without and with solar panels.
 
@@ -540,7 +540,7 @@ In a year, we saved *USD src_emacs-lisp[:var d=electricity-bills[15, 3]]{d} {{{r
 
 #+name: ev-savings-co2
 #+begin_src python :session :exports none :results value :dir ./src :var kwh=ev-charging-kwh :var bolt=bolt-distance :var model3=model3-distance
-  '%.1f' % ((((int(bolt.replace(',', '')) + int(model3)) / 30 * 8.887 * 1.3) - int(kwh.replace(',', '')) * 0.5) / 1000)
+  '%.1f' % ((((int(bolt.replace(',', '')) + int(model3.replace(',', ''))) / 30 * 8.887 * 1.3) - int(kwh.replace(',', '')) * 0.5) / 1000)
 #+end_src
 
 #+name: model3-distance
@@ -578,11 +578,11 @@ In a year, we saved *USD src_emacs-lisp[:var d=electricity-bills[15, 3]]{d} {{{r
   print('{:,}'.format(int(total)))
 #+end_src
 
-As of today, we have been driving call_bolt-distance() {{{results(=12\,699=)}}} miles with our Bolt EV and call_model3-distance() {{{results(=855=)}}} miles with our Model 3. I am purposefully excluding driving not powered by electricity from our home. We used a total of call_ev-charging-kwh() {{{results(=3\,751=)}}} KWh from our solar panels to charge the cars. Considering that we used this electricity instead of selling it back to our power utility it "cost" us *USD call_ev-charging-usd() {{{results(=105=)}}}*.
+As of today, we have been driving call_bolt-distance() {{{results(=13\,473=)}}} miles with our Bolt EV and call_model3-distance() {{{results(=1\,529=)}}} miles with our Model 3. I am purposefully excluding driving not powered by electricity from our home. We used a total of call_ev-charging-kwh() {{{results(=4\,146=)}}} KWh from our solar panels to charge the cars. Considering that we used this electricity instead of selling it back to our power utility it "cost" us *USD call_ev-charging-usd() {{{results(=116=)}}}*.
 
-If we assume we were driving a gas car with a mileage of 30 miles/gallon and an average gas price of 3.40 USD/gallon it would have cost us USD call_gas-equivalent-usd() {{{results(=1\,396=)}}}. In short, it means that we saved *USD call_ev-savings-usd() {{{results(=1\,291=)}}}* on gas.
+If we assume we were driving a gas car with a mileage of 30 miles/gallon and an average gas price of 3.40 USD/gallon it would have cost us USD call_gas-equivalent-usd() {{{results(=1\,545=)}}}. In short, it means that we saved *USD call_ev-savings-usd() {{{results(=1\,429=)}}}* on gas.
 
-More importantly, assuming that a gallon of gas produces [[https://www.epa.gov/greenvehicles/greenhouse-gas-emissions-typical-passenger-vehicle][8.887 kg of CO_{2}]] plus [[https://innovationorigins.com/en/producing-gasoline-and-diesel-emits-more-co2-than-we-thought/][30% since gas does not magically materializes at the gas station]]. Including construction, installation and recycling, one KWh of electricity produced by our solar panels system creates 50g of CO_{2}. Therefore we have avoided the emission of *call_ev-savings-co2() {{{results(=3.3=)}}} tons of CO_{2}*.
+More importantly, assuming that a gallon of gas produces [[https://www.epa.gov/greenvehicles/greenhouse-gas-emissions-typical-passenger-vehicle][8.887 kg of CO_{2}]] plus [[https://innovationorigins.com/en/producing-gasoline-and-diesel-emits-more-co2-than-we-thought/][30% since gas does not magically materializes at the gas station]]. Including construction, installation and recycling, one KWh of electricity produced by our solar panels system creates 50g of CO_{2}. Therefore we have avoided the emission of *call_ev-savings-co2() {{{results(=3.7=)}}} tons of CO_{2}*.
 
 #+name: home-usage
 #+begin_src python :session :exports none :results value :var data=monthly-data :dir ./src
