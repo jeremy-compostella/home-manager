@@ -524,6 +524,8 @@ class Scheduler(SchedulerInterface):
             power = self.stat.power_used_by(task)
             if not task.meet_running_criteria(ratio, power=power) \
                and task.is_stoppable():
+                # TODO: shouldn't ratio be the max for the last minute and the
+                # entire window ?
                 debug(('%s does not meet its running criteria ' +
                        '(ratio=%.2f, %.2f KWh)') % (task.desc, ratio, power))
                 return [task]
@@ -560,6 +562,7 @@ class Scheduler(SchedulerInterface):
             ratio = self.stat.available_for(task, ignore=challengers,
                                             minimum=minimum)
             if task.meet_running_criteria(ratio):
+                # TODO: Unless it would be able to run already.
                 debug('%s %s preventing %s to run' %
                       ([challenger.desc for challenger in challengers],
                        'is' if len(challengers) == 1 else 'are',
