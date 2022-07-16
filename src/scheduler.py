@@ -502,6 +502,20 @@ class Scheduler(SchedulerInterface):
             self.uris.remove(uri)
             self.cache.clear()
 
+    def __find_conflicting_power_keys(self) -> list:
+        '''Return running tasks sharing the same power keys.
+
+        The power consumption of tasks sharing the same keys cannot be clearly
+        identified. Therefor, they do not run simultaneously.
+
+        '''
+        running_keys = [task.keys for task in self.running]
+        tasks = []
+        for keys in running_keys:
+            for task in [task for task in self.running if task.keys == keys][1:]:
+                tasks.append(task)
+        return tasks
+
     def __find_failing_criteria(self) -> list:
         '''Return the first task not meeting its own running criteria.'''
         for task in sorted(self.running, key=lambda task: task.priority):
@@ -555,8 +569,14 @@ class Scheduler(SchedulerInterface):
 
     def __elect_task(self) -> Pyro5.api.Proxy:
         '''Return the most suitable task to run.'''
-        for task in self.stopped:
-            ratio = self.stat.available_for(task, ignore=self.stopped,
+        # The power consumption of tasks sharing the same keys cannot be
+        # clearly identified. Therefor, they do not run simultaneously.
+        running_keys = [task.keys for task in self.running]
+        eligible = [task for task in self.stopped \
+                    if not task.keys in running_keys]
+
+        for task in eligible:
+            ratio = self.stat.available_for(task, ignore=eligible,
                                             minimum=self.running)
             if self.running:
                 priority = mean([t.priority for t in self.running])
@@ -591,7 +611,8 @@ class Scheduler(SchedulerInterface):
             debug('No registered task')
 
         if self.running:
-            ineligible_task_finders = [self.__find_failing_criteria,
+            ineligible_task_finders = [self.__find_conflicting_power_keys,
+                                       self.__find_failing_criteria,
                                        self.__find_dimishing_adjustable,
                                        self.__find_lower_priority_tasks]
             for finder in ineligible_task_finders:
