@@ -493,7 +493,7 @@ class Scheduler(SchedulerInterface):
                     priority = task.priority
                     running = task.is_running()
                     break
-                except Pyro5.errors.CommunicationError:
+                except (Pyro5.errors.CommunicationError, RuntimeError):
                     time.sleep(1)
             if isinstance(priority, int) and isinstance(running, bool):
                 continue
@@ -771,7 +771,7 @@ def main():
         scheduler.sanitize()
         try:
             scheduler.schedule()
-        except (Pyro5.errors.CommunicationError, RuntimeError):
+        except (Pyro5.errors.CommunicationError, RuntimeError, AttributeError):
             log_exception('schedule() failed', *sys.exc_info())
             debug(''.join(Pyro5.errors.get_pyro_traceback()))
 
