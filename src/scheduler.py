@@ -363,7 +363,7 @@ class PowerUsageSlidingWindow():
 def compare_task(task1: Pyro5.api.Proxy, task2: Pyro5.api.Proxy) -> int:
     '''Compare TASK1 with TASK2.
 
-    Return -1 if TASK1 is of less importance then task2, 1 if TASK1 is of more
+    Return -1 if TASK1 is of less importance than TASK2, 1 if TASK1 is of more
     importance than TASK2 and 0 otherwise.
 
     '''
