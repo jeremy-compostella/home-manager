@@ -69,8 +69,8 @@ MODULE_NAME = 'pool_pump'
 class Ewelink:
     '''Helper class to communicate with the Ewelink server.'''
 
-    APP_ID = 'oeVkj2lYFGnJu5XUtWisfW4utiN4u9Mq'
-    APP_SECRET = b'6Nz4n0xA8s8qdxQf2GqurZj2Fs55FUvM'
+    APP_ID = 'R8Oq3y0eSZSYdKccHlrQzT1ACCOUT9Gv'
+    APP_SECRET = b'1ve5Qk9GXfUhKAn1svnKwpAlxXkMarru'
 
     def __init__(self, login, password, timeout=5, region='us'):
         self._credentials = {'login': login, 'password': password}
