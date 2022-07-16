@@ -154,7 +154,7 @@ class HVACTask(Task, Sensor):
               % (duration, target))
         resp = self.__attempt('set_hold',
                               **{'hold_type': HoldType.HOLD_HOURS,
-                                 'hold_hours': ceil(duration.seconds / 3600),
+                                 'hold_hours': ceil(duration.seconds * 2 / 3600),
                                  'heat_hold_temp': target,
                                  'cool_hold_temp': target + (mode.value * 2)})
         if resp.status.code != 0:
