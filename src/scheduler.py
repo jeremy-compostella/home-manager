@@ -166,7 +166,7 @@ class Task:
         as possible.
 
         '''
-        return ""
+        return ''
 
     @property
     def priority(self) -> Priority:
@@ -498,7 +498,7 @@ class Scheduler(SchedulerInterface):
             if isinstance(priority, int) and isinstance(running, bool):
                 continue
             name = self.__task_name(task)
-            debug('Communication error with %s, removing...' %  name)
+            debug(f'Communication error with {name}, removing...')
             self.uris.remove(uri)
             self.cache.clear()
 
@@ -543,7 +543,7 @@ class Scheduler(SchedulerInterface):
         min_priority = max([task.priority for task in self.adjustable])
         for task in [task for task in self.running if task.is_stoppable()]:
             if not task.auto_adjust and task.priority < min_priority:
-                debug("%s prevents %s to run to their full potential" % \
+                debug('%s prevents %s to run to their full potential' % \
                       (task.desc, [adj.desc for adj in self.adjustable]))
                 return [task]
         return []
@@ -560,7 +560,7 @@ class Scheduler(SchedulerInterface):
             ratio = self.stat.available_for(task, ignore=challengers,
                                             minimum=minimum)
             if task.meet_running_criteria(ratio):
-                debug("%s %s preventing %s to run" %
+                debug('%s %s preventing %s to run' %
                       ([challenger.desc for challenger in challengers],
                        'is' if len(challengers) == 1 else 'are',
                        task.desc))
@@ -601,12 +601,12 @@ class Scheduler(SchedulerInterface):
             return
         self.cache.clear()
         if self.tasks:
-            debug('Running %s' % [task.desc for task in self.running])
-            debug('Stopped %s' % [task.desc for task in self.stopped])
+            debug(f'Running {[task.desc for task in self.running]}')
+            debug(f'Stopped {[task.desc for task in self.stopped]}')
             unrunnable = [task for task in self.tasks \
                           if not task.is_runnable()]
             if unrunnable:
-                debug('Not runnable %s' % [task.desc for task in unrunnable])
+                debug(f'Not runnable {[task.desc for task in unrunnable]}')
         else:
             debug('No registered task')
 
@@ -620,7 +620,7 @@ class Scheduler(SchedulerInterface):
                 if not tasks_to_stop:
                     continue
                 for task in tasks_to_stop:
-                    debug('Stopping %s' % task.desc)
+                    debug(f'Stopping {task.desc}')
                     task.stop()
                     self.running.remove(task)
                     self.stopped.append(task)
@@ -629,7 +629,7 @@ class Scheduler(SchedulerInterface):
             task_to_start = self.__elect_task()
             if not task_to_start:
                 break
-            debug('Starting %s' % task_to_start.desc)
+            debug(f'Starting {task_to_start.desc}')
             task_to_start.start()
             self.stopped.remove(task_to_start)
             self.running.append(task_to_start)
@@ -732,7 +732,7 @@ def main():
 
     simulator = SensorReader('power_simulator')
     watchdog = WatchdogProxy()
-    debug("... is now ready to run")
+    debug('... is now ready to run')
     paused_locally = False
     while True:
         watchdog.register(os.getpid(), MODULE_NAME)
@@ -758,7 +758,7 @@ def main():
         # pylint: disable=maybe-no-member
         if not record:
             gap = sensor.time_elapsed_since_latest_record()
-            debug('No new power sensor record for %s' % gap)
+            debug('No new power sensor record for {gap}')
             max_gap = timedelta(minutes=settings.max_record_gap)
             # No new power sensor record for more than
             # 'max_record_gap', let's try to use the power record
@@ -773,7 +773,7 @@ def main():
                     # available.
                     debug('the scheduler has not been able to read ' +
                           'any power sensor record for more than ' +
-                          '%d minutes.' % settings.max_record_gap)
+                          '{settings.max_record_gap} minutes.')
                     if not scheduler.is_on_pause():
                         scheduler.stop_all()
                         scheduler.pause()
@@ -796,5 +796,5 @@ def main():
             log_exception('schedule() failed', *sys.exc_info())
             debug(''.join(Pyro5.errors.get_pyro_traceback()))
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
