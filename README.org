@@ -5,7 +5,9 @@
 #+TITLE: Solar Power usage optimization in a residential home
 
 #+name: monthly-data
-#+begin_src python :session :exports none :results output :dir ./src
+#+begin_src python :session :exports none :results output :dir ./src :var nb_month=-1  :var completed="False"
+  from dateutil.relativedelta import relativedelta
+  from datetime import timedelta, datetime
   from dateutil import parser
   from tools import get_database
 
@@ -20,12 +22,29 @@
                   if k not in ['net', 'solar', 'from_grid',
                                'to_grid', 'title', 'local']])
 
+  def latest_entry():
+      with get_database() as database:
+          database.row_factory = dict_factory
+          cursor = database.cursor()
+          req = 'SELECT * FROM daily_energy ORDER BY timestamp DESC LIMIT 1'
+          cursor.execute(req)
+          latest = cursor.fetchall()
+          return parser.parse(latest[0]['timestamp'])
+
   def monthly_data():
       months = {}
       with get_database() as database:
           database.row_factory = dict_factory
           cursor = database.cursor()
           req = 'SELECT * FROM daily_energy'
+          latest = latest_entry()
+          if bool(completed):
+              latest = latest.replace(day=1)
+          if nb_month != -1:
+              start = latest - relativedelta(months=nb_month)
+              req += ' WHERE timestamp>=\'' + start.strftime("%Y-%m-%d") + '\''
+              if bool(completed):
+                  req += ' AND timestamp<\'' + latest.strftime("%Y-%m-%d") + '\''
           cursor.execute(req)
           daily_energy = cursor.fetchall()
       for day in daily_energy:
@@ -50,16 +69,6 @@
 
   print(monthly_data())
 #+end_src
-#+RESULTS: monthly-data
-#+name: usage-share
-#+begin_src python :session :exports none :results value :var data=monthly-data devices="ev,hvac,water_heater"
-  data = eval(data)
-  total = sum([record['local'] + record['from_grid'] for record in data])
-  # devices = sum(sum(record[d] for d in ['ev', 'hvac', 'water_heater']) \
-  devices = sum(sum(record[d] for d in devices.split(',')) \
-                for record in data)
-  '%d%%' % round(100 * devices / total)
-#+end_src
 * Introduction
 This project is a *Solar power usage optimization system for residential home*. It is a set of software components and services scheduling and optimizing devices of a residential home to optimally use solar generated power.
 
@@ -67,7 +76,7 @@ Back in May 2021, I installed solar panels on my roof. As a software engineer co
 
 Optimizing requires having good understanding of what to optimize. In this particular case, it means which devices or appliances. I started collecting data from my electrical panel by installing sensors and within a few weeks I was able to identify the most energy-intensive devices.
 
-#+begin_src python :session: :results file :exports results :var data=monthly-data
+#+begin_src python :session: :results file :exports results :var data=monthly-data(12)
   import matplotlib.pyplot as plt
 
   # Pie chart, where the slices will be ordered and plotted counter-clockwise:
@@ -95,6 +104,7 @@ Optimizing requires having good understanding of what to optimize. In this parti
   plt.savefig(fname)
   return fname
 #+end_src
+#+caption: Power consumption distribution over the last 12 months
 #+RESULTS:
 [[file:doc/images/yearly_energy_consumption_distribution.svg]]
 
@@ -110,10 +120,10 @@ I have defined two measurable goals:
 1. The electric car should be charged at 100% with solar produced energy
 2. The home energy consumption (including the car charger) must be covered at more than two third by the solar energy
 
-As of today, between call_db-first-month() {{{results(=June 2021=)}}} and call_db-last-month() {{{results(=July 2022=)}}}, the entire home energy consumption has been covered by solar energy at call_powered-by-solar() {{{results(=68%=)}}}.
+From call_db-first-month() {{{results(=July 2021=)}}} to call_db-last-month() {{{results(=June 2022=)}}}, the entire home energy consumption has been covered by solar energy at call_powered-by-solar() {{{results(=71%=)}}}.
 
 The following diagram represents the distribution of the energy consumption of my home per month since I started this project. It also includes the per-month ratio of energy used which originated from the solar panels (in light blue).
-#+begin_src python :session: :results file :exports results :var data=monthly-data
+#+begin_src python :session: :results file :exports results :var data=monthly-data(12, "True")
   import matplotlib.pyplot as plt
   import numpy as np
 
@@ -162,7 +172,7 @@ The following diagram represents the distribution of the energy consumption of m
   ax.set(ylabel='kWh')
   ax.set_xticks(x)
   ax.set_xticklabels([record['title'] for record in data])
-  ax.set_title('Energy Consumption Distribution')
+  ax.set_title('Energy Consumption Distribution (12 months)')
   ax.set_yticks(np.arange(0, 2500, step=100))
   ax.legend(loc='upper center')
   plt.grid(which='major', linestyle='dotted')
@@ -174,18 +184,18 @@ The following diagram represents the distribution of the energy consumption of m
 #+RESULTS:
 [[file:doc/images/energy_consumption_distribution.svg]]
 #+name: powered-by-solar
-#+begin_src python :session :exports none :results value :var data=monthly-data
+#+begin_src python :session :exports none :results value :var data=monthly-data(12)
   data = eval(data)
   '%d%%' % round((1 - (sum([record['from_grid'] for record in data]) /
        sum([total(record) for record in data]))) * 100)
 #+end_src
 #+name: db-first-month
-#+begin_src python :session :exports none :results value :var data=monthly-data
+#+begin_src python :session :exports none :results value :var data=monthly-data(12)
   data = eval(data)
   data[0]['title'].replace('\n', ' ')
 #+end_src
 #+name: db-last-month
-#+begin_src python :session :exports none :results value :var data=monthly-data
+#+begin_src python :session :exports none :results value :var data=monthly-data(12)
   data = eval(data)
   data[-1]['title'].replace('\n', ' ')
 #+end_src
@@ -578,7 +588,7 @@ In a year, we saved *USD src_emacs-lisp[:var d=electricity-bills[15, 3]]{d} {{{r
   print('{:,}'.format(int(total)))
 #+end_src
 
-As of today, we have been driving call_bolt-distance() {{{results(=13\,473=)}}} miles with our Bolt EV and call_model3-distance() {{{results(=1\,529=)}}} miles with our Model 3. I am purposefully excluding driving not powered by electricity from our home. We used a total of call_ev-charging-kwh() {{{results(=4\,146=)}}} KWh from our solar panels to charge the cars. Considering that we used this electricity instead of selling it back to our power utility it "cost" us *USD call_ev-charging-usd() {{{results(=116=)}}}*.
+Since May 2021, we have been driving call_bolt-distance() {{{results(=13\,473=)}}} miles with our Bolt EV and call_model3-distance() {{{results(=1\,529=)}}} miles with our Model 3. I am purposefully excluding driving not powered by electricity from our home. We used a total of call_ev-charging-kwh() {{{results(=4\,146=)}}} KWh from our solar panels to charge the cars. Considering that we used this electricity instead of selling it back to our power utility it "cost" us *USD call_ev-charging-usd() {{{results(=116=)}}}*.
 
 If we assume we were driving a gas car with a mileage of 30 miles/gallon and an average gas price of 3.40 USD/gallon it would have cost us USD call_gas-equivalent-usd() {{{results(=1\,545=)}}}. In short, it means that we saved *USD call_ev-savings-usd() {{{results(=1\,429=)}}}* on gas.
 

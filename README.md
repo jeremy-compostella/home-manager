@@ -8,7 +8,7 @@ Back in May 2021, I installed solar panels on my roof. As a software engineer co
 
 Optimizing requires having good understanding of what to optimize. In this particular case, it means which devices or appliances. I started collecting data from my electrical panel by installing sensors and within a few weeks I was able to identify the most energy-intensive devices.
 
-![img](doc/images/yearly_energy_consumption_distribution.svg)
+![img](doc/images/yearly_energy_consumption_distribution.svg "Power consumption distribution over the last 12 months")
 
 I decided to focus on the following four devices (in order of priority):
 
@@ -24,7 +24,7 @@ I have defined two measurable goals:
 1.  The electric car should be charged at 100% with solar produced energy
 2.  The home energy consumption (including the car charger) must be covered at more than two third by the solar energy
 
-As of today, between `June 2021` and `July 2022`, the entire home energy consumption has been covered by solar energy at `68%`.
+From `July 2021` to `June 2022`, the entire home energy consumption has been covered by solar energy at `71%`.
 
 The following diagram represents the distribution of the energy consumption of my home per month since I started this project. It also includes the per-month ratio of energy used which originated from the solar panels (in light blue).
 
@@ -139,7 +139,7 @@ Assuming a conservative 200 g/KWh of CO<sub>2</sub> for the electricity produced
 
 The following table presents our electricity bills without and with solar panels.
 
-<table id="orgf66c092" border="1" cellspacing="0" frame="border" cellpadding="2" rules="all">
+<table id="org54489ad" border="1" cellspacing="0" frame="border" cellpadding="2" rules="all">
 
 
 <colgroup>
@@ -272,9 +272,9 @@ In a year, we saved **USD `1048.15`** on our electricity bills. It means that th
 
 ## Cars and commute
 
-As of today, we have been driving `13,473` miles with our Bolt EV and `1,529` miles with our Model 3. I am purposefully excluding driving not powered by electricity from our home. We used a total of `4,146` KWh from our solar panels to charge the cars. Considering that we used this electricity instead of selling it back to our power utility it "cost" us **USD `116`**.
+Since May 2021, we have been driving `13,507` miles with our Bolt EV and `1,529` miles with our Model 3. I am purposefully excluding driving not powered by electricity from our home. We used a total of `4,167` KWh from our solar panels to charge the cars. Considering that we used this electricity instead of selling it back to our power utility it "cost" us **USD `117`**.
 
-If we assume we were driving a gas car with a mileage of 30 miles/gallon and an average gas price of 3.40 USD/gallon it would have cost us USD `1,545`. In short, it means that we saved **USD `1,429`** on gas.
+If we assume we were driving a gas car with a mileage of 30 miles/gallon and an average gas price of 3.40 USD/gallon it would have cost us USD `1,549`. In short, it means that we saved **USD `1,432`** on gas.
 
 More importantly, assuming that a gallon of gas produces [8.887 kg of CO<sub>2</sub>](https://www.epa.gov/greenvehicles/greenhouse-gas-emissions-typical-passenger-vehicle) plus [30% since gas does not magically materializes at the gas station](https://innovationorigins.com/en/producing-gasoline-and-diesel-emits-more-co2-than-we-thought/). Including construction, installation and recycling, one KWh of electricity produced by our solar panels system creates 50g of CO<sub>2</sub>. Therefore we have avoided the emission of **`3.7` tons of CO<sub>2</sub>**.
 
