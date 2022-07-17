@@ -127,11 +127,19 @@ class CarCharger:
         '''Current state of charge.'''
 
     @property
+    @abstractmethod
+    def max_state_of_charge(self):
+        '''Maximum State of charge.'''
+
+    @property
     def priority(self):
         '''Priority of this car charger.'''
+        # Set the low threshold so that the highest the requested maximum
+        # charge of state the highest the threshold.
+        low = self.max_state_of_charge - (100 - self.max_state_of_charge) / 2
         thresholds = {Priority.URGENT: 33,
                       Priority.HIGH: 55,
-                      Priority.MEDIUM: 101,
+                      Priority.MEDIUM: low,
                       Priority.LOW: 101}
         if not self.is_plugged_in() or not self.can_charge():
             return Priority.LOW
@@ -155,7 +163,7 @@ class WallboxCarCharger(CarCharger):
         self.wallbox = wallbox
         self.charger_id = charger_id
         self.sensor = sensor
-        self.max_state_of_charge = max_state_of_charge
+        self._max_state_of_charge = max_state_of_charge
         self.cache = TTLCache(1, timedelta(seconds=15), datetime.now)
 
     def __call(self, name, *args):
@@ -226,6 +234,11 @@ class WallboxCarCharger(CarCharger):
     def state_of_charge(self):
         return self.sensor.read()['state of charge']
 
+    @property
+    def max_state_of_charge(self):
+        '''Maximum State of charge.'''
+        return self._max_state_of_charge
+
 class TeslaCarCharger(CarCharger):
     '''CarCharger implementation for Tesla.'''
     def __init__(self, name, vehicle, home, settings):
@@ -286,7 +299,7 @@ class TeslaCarCharger(CarCharger):
     def can_charge(self):
         return self.is_home() \
             and self.status['charging_state'] != 'Complete' \
-            and self.status['battery_level'] < self.status['charge_limit_soc']
+            and self.status['battery_level'] < self.max_state_of_charge
 
     @property
     def min_charging_current(self):
@@ -313,6 +326,10 @@ class TeslaCarCharger(CarCharger):
     @property
     def state_of_charge(self):
         return self.status['battery_level']
+
+    @property
+    def max_state_of_charge(self):
+        return self.status['charge_limit_soc']
 
 class CarChargerTask(Task):
     '''Task handling car charging.'''
