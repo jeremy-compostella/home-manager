@@ -237,7 +237,7 @@ class HVACTask(Task, Sensor):
         min_ratio = min(1, .95 * self.param.max_available_power / self.power)
         debug('min ratio=%s'
               % min(1, .95 * self.param.max_available_power / self.power))
-        if self.param.target_time - datetime.now() < run_time:
+        if timedelta(0) < self.param.target_time - datetime.now() < run_time:
             coefficient = (self.param.target_time - datetime.now()) / run_time
             return ratio >= min_ratio * coefficient * coefficient
         if self.is_running():
