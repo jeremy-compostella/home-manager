@@ -178,7 +178,7 @@ class WallboxCarCharger(CarCharger):
                     socket.gaierror, OSError):
                 log_exception(f'{name}{args} failed', *sys.exc_info())
                 sleep(0.5)
-        raise RuntimeError(f'{name}{args} failed too many times' % (name, args))
+        raise RuntimeError(f'{name}{args} failed too many times')
 
     @property
     def status(self):
