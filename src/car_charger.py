@@ -60,7 +60,7 @@ from watchdog import WatchdogProxy
 
 DEFAULT_SETTINGS = {'power_sensor_key': 'EV',
                     'cycle_length': 15,
-                    'home_distance_threshold_feet': 50,
+                    'home_distance_threshold_feet': 500,
                     'commute_car': 'Chevy Bolt EV'}
 
 MODULE_NAME = 'car_charger'
