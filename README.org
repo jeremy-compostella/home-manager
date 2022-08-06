@@ -33,17 +33,18 @@
 
   def monthly_data():
       months = {}
+      complete = completed == "True"
       with get_database() as database:
           database.row_factory = dict_factory
           cursor = database.cursor()
           req = 'SELECT * FROM daily_energy'
           latest = latest_entry()
-          if bool(completed):
+          if complete:
               latest = latest.replace(day=1)
           if nb_month != -1:
               start = latest - relativedelta(months=nb_month)
               req += ' WHERE timestamp>=\'' + start.strftime("%Y-%m-%d") + '\''
-              if bool(completed):
+              if complete:
                   req += ' AND timestamp<\'' + latest.strftime("%Y-%m-%d") + '\''
           cursor.execute(req)
           daily_energy = cursor.fetchall()
@@ -120,9 +121,9 @@ I have defined two measurable goals:
 1. The electric car should be charged at 100% with solar produced energy
 2. The home energy consumption (including the car charger) must be covered at more than two third by the solar energy
 
-From call_db-first-month() {{{results(=July 2021=)}}} to call_db-last-month() {{{results(=June 2022=)}}}, the entire home energy consumption has been covered by solar energy at call_powered-by-solar() {{{results(=71%=)}}}.
+From call_db-first-month() {{{results(=August 2021=)}}} to call_db-last-month() {{{results(=July 2022=)}}}, the entire home energy consumption has been covered by solar energy at call_powered-by-solar() {{{results(=72%=)}}}.
 
-The following diagram represents the distribution of the energy consumption of my home per month since I started this project. It also includes the per-month ratio of energy used which originated from the solar panels (in light blue).
+The following diagram represents the distribution of the energy consumption of my home over the last twelve months since I started this project. It also includes the per-month ratio of energy used which  originated from the solar panels (light blue).
 #+begin_src python :session: :results file :exports results :var data=monthly-data(12, "True")
   import matplotlib.pyplot as plt
   import numpy as np
@@ -184,23 +185,23 @@ The following diagram represents the distribution of the energy consumption of m
 #+RESULTS:
 [[file:doc/images/energy_consumption_distribution.svg]]
 #+name: powered-by-solar
-#+begin_src python :session :exports none :results value :var data=monthly-data(12)
+#+begin_src python :session :exports none :results value :var data=monthly-data(12, "True")
   data = eval(data)
   '%d%%' % round((1 - (sum([record['from_grid'] for record in data]) /
        sum([total(record) for record in data]))) * 100)
 #+end_src
 #+name: db-first-month
-#+begin_src python :session :exports none :results value :var data=monthly-data(12)
+#+begin_src python :session :exports none :results value :var data=monthly-data(12, "True")
   data = eval(data)
   data[0]['title'].replace('\n', ' ')
 #+end_src
 #+name: db-last-month
-#+begin_src python :session :exports none :results value :var data=monthly-data(12)
+#+begin_src python :session :exports none :results value :var data=monthly-data(12, "True")
   data = eval(data)
   data[-1]['title'].replace('\n', ' ')
 #+end_src
 * Implementation
-The system is split into various python modules running on a Raspberry Pi4. They provide services such as weather forecast, instant power consumption records, solar power prediction, home thermal model, HVAC performance model, appliances controls and a scheduler. In a modest way, this is also learning system. Indeed, it collects data and uses this data to generate models which influence the system decisions.
+The system is split into various python modules running on a [[https://www.raspberrypi.com/products/raspberry-pi-4-model-b/][Raspberry Pi 4]]. They provide services such as weather forecast, instant power consumption records, solar panels power prediction, home thermal model, HVAC performance model, appliances controls and a scheduler. In a modest way, this is also learning system. Indeed, it collects data and uses this data to generate models which influence the system decisions.
 
 This project also includes some basic Home Assistant integration to ease the monitoring and control of the system as seen in the following screen capture.
 
@@ -487,7 +488,7 @@ In term of pool filtering, keeping the pool water clean and clear of bacteria de
 * Financial and environmental results
 This section presents the financial and environmental impacts of our use of solar panels, EV cars and the optimization system presented above.
 ** Home electricity
-Assuming a conservative 200 g/KWh of CO_{2} for the electricity produced by our power utility compared to the 50 g/KWh of CO_{2} from our solar panels, we reduces our carbon emission by *call_home-usage() {{{results(=1.2=)}}} ton of CO_{2}* using the electricity from our solar panels.
+Assuming a conservative 200 g/KWh of CO_{2} for the electricity produced by our power utility compared to the 50 g/KWh of CO_{2} from our solar panels, in the last twelve month, we have reduced our carbon emission by *call_home-usage() {{{results(=1.3=)}}} tons*.
 
 The following table presents our electricity bills without and with solar panels.
 
@@ -588,18 +589,21 @@ In a year, we saved *USD src_emacs-lisp[:var d=electricity-bills[15, 3]]{d} {{{r
   print('{:,}'.format(int(total)))
 #+end_src
 
-Since May 2021, we have been driving call_bolt-distance() {{{results(=13\,473=)}}} miles with our Bolt EV and call_model3-distance() {{{results(=1\,529=)}}} miles with our Model 3. I am purposefully excluding driving not powered by electricity from our home. We used a total of call_ev-charging-kwh() {{{results(=4\,146=)}}} KWh from our solar panels to charge the cars. Considering that we used this electricity instead of selling it back to our power utility it "cost" us *USD call_ev-charging-usd() {{{results(=116=)}}}*.
+Since May 2021, we have been driving call_bolt-distance() {{{results(=13\,965=)}}} miles with our Bolt EV and since May 2022 call_model3-distance() {{{results(=1\,938=)}}} miles with our Model 3. I am purposefully excluding driving not powered by electricity from our home. We used a total of call_ev-charging-kwh() {{{results(=4\,456=)}}} KWh from our solar panels to charge the cars. Considering that we used this electricity instead of selling it back to our power utility it "cost" us *USD call_ev-charging-usd() {{{results(=125=)}}}*.
 
-If we assume we were driving a gas car with a mileage of 30 miles/gallon and an average gas price of 3.40 USD/gallon it would have cost us USD call_gas-equivalent-usd() {{{results(=1\,545=)}}}. In short, it means that we saved *USD call_ev-savings-usd() {{{results(=1\,429=)}}}* on gas.
+If we assume we were driving a gas car with a mileage of 30 miles/gallon and an average gas price of 3.40 USD/gallon it would have cost us USD call_gas-equivalent-usd() {{{results(=1\,638=)}}}. It means that we saved *USD call_ev-savings-usd() {{{results(=1\,513=)}}}* on gas.
 
-More importantly, assuming that a gallon of gas produces [[https://www.epa.gov/greenvehicles/greenhouse-gas-emissions-typical-passenger-vehicle][8.887 kg of CO_{2}]] plus [[https://innovationorigins.com/en/producing-gasoline-and-diesel-emits-more-co2-than-we-thought/][30% since gas does not magically materializes at the gas station]]. Including construction, installation and recycling, one KWh of electricity produced by our solar panels system creates 50g of CO_{2}. Therefore we have avoided the emission of *call_ev-savings-co2() {{{results(=3.7=)}}} tons of CO_{2}*.
+More importantly, assuming that a gallon of gas produces [[https://www.epa.gov/greenvehicles/greenhouse-gas-emissions-typical-passenger-vehicle][8.887 kg of CO_{2}]] plus [[https://innovationorigins.com/en/producing-gasoline-and-diesel-emits-more-co2-than-we-thought/][30% since gas does not magically materializes at the gas station]]. Including construction, installation and recycling, one KWh of electricity produced by our solar panels system creates 50g of CO_{2}. Therefore we have avoided the emission of *call_ev-savings-co2() {{{results(=3.9=)}}} tons of CO_{2}*.
+
+However, we have to take into account the production of the battery of both cars as they can be considered extra pollution compared to a gas car. If we assume the absolute nearly impossible worst  case scenario where it would not get recycled at all and we consider that creating a [[https://changeit.app/blog/2021-03-26-environmental-impact-of-lithium-batteries/][1 KWh battery generates 73 Kg of CO_{2}]], our two EV batteries created around 10.3 tons of CO_{2}. Therefor, at our current rate, it should take approximately two years and a half to break even with two gas cars.
 
 #+name: home-usage
-#+begin_src python :session :exports none :results value :var data=monthly-data :dir ./src
+#+begin_src python :session :exports none :results value :var data=monthly-data(12) :dir ./src
   data = eval(data)
   print(data)
   used=sum([d['solar'] - d['to_grid'] - d['ev'] for d in data])
   '%.1f' % (((used * .200) - (used * 0.050)) / 1000)
 #+end_src
+
 ** Conclusion
 Our use of solar panels and electric cars to commute saves us about *USD 2,400 / per year* and reduces our carbon emissions by more than *4 tons of CO_{2}/year*.

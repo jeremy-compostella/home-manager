@@ -24,16 +24,16 @@ I have defined two measurable goals:
 1.  The electric car should be charged at 100% with solar produced energy
 2.  The home energy consumption (including the car charger) must be covered at more than two third by the solar energy
 
-From `July 2021` to `June 2022`, the entire home energy consumption has been covered by solar energy at `71%`.
+From `August 2021` to `July 2022`, the entire home energy consumption has been covered by solar energy at `72%`.
 
-The following diagram represents the distribution of the energy consumption of my home per month since I started this project. It also includes the per-month ratio of energy used which originated from the solar panels (in light blue).
+The following diagram represents the distribution of the energy consumption of my home over the last twelve months since I started this project. It also includes the per-month ratio of energy used which  originated from the solar panels (light blue).
 
 ![img](doc/images/energy_consumption_distribution.svg)
 
 
 # Implementation
 
-The system is split into various python modules running on a Raspberry Pi4. They provide services such as weather forecast, instant power consumption records, solar power prediction, home thermal model, HVAC performance model, appliances controls and a scheduler. In a modest way, this is also learning system. Indeed, it collects data and uses this data to generate models which influence the system decisions.
+The system is split into various python modules running on a [Raspberry Pi 4](https://www.raspberrypi.com/products/raspberry-pi-4-model-b/). They provide services such as weather forecast, instant power consumption records, solar panels power prediction, home thermal model, HVAC performance model, appliances controls and a scheduler. In a modest way, this is also learning system. Indeed, it collects data and uses this data to generate models which influence the system decisions.
 
 This project also includes some basic Home Assistant integration to ease the monitoring and control of the system as seen in the following screen capture.
 
@@ -135,11 +135,11 @@ This section presents the financial and environmental impacts of our use of sola
 
 ## Home electricity
 
-Assuming a conservative 200 g/KWh of CO<sub>2</sub> for the electricity produced by our power utility compared to the 50 g/KWh of CO<sub>2</sub> from our solar panels, we reduces our carbon emission by **`1.2` ton of CO<sub>2</sub>** using the electricity from our solar panels.
+Assuming a conservative 200 g/KWh of CO<sub>2</sub> for the electricity produced by our power utility compared to the 50 g/KWh of CO<sub>2</sub> from our solar panels, in the last twelve month, we have reduced our carbon emission by **`1.1` tons**.
 
 The following table presents our electricity bills without and with solar panels.
 
-<table id="org54489ad" border="1" cellspacing="0" frame="border" cellpadding="2" rules="all">
+<table id="org42603fd" border="1" cellspacing="0" frame="border" cellpadding="2" rules="all">
 
 
 <colgroup>
@@ -272,11 +272,13 @@ In a year, we saved **USD `1048.15`** on our electricity bills. It means that th
 
 ## Cars and commute
 
-Since May 2021, we have been driving `13,507` miles with our Bolt EV and `1,529` miles with our Model 3. I am purposefully excluding driving not powered by electricity from our home. We used a total of `4,167` KWh from our solar panels to charge the cars. Considering that we used this electricity instead of selling it back to our power utility it "cost" us **USD `117`**.
+Since May 2021, we have been driving `13,965` miles with our Bolt EV and `1,938` miles with our Model 3. I am purposefully excluding driving not powered by electricity from our home. We used a total of `4,456` KWh from our solar panels to charge the cars. Considering that we used this electricity instead of selling it back to our power utility it "cost" us **USD `125`**.
 
-If we assume we were driving a gas car with a mileage of 30 miles/gallon and an average gas price of 3.40 USD/gallon it would have cost us USD `1,549`. In short, it means that we saved **USD `1,432`** on gas.
+If we assume we were driving a gas car with a mileage of 30 miles/gallon and an average gas price of 3.40 USD/gallon it would have cost us USD `1,638`. In short, it means that we saved **USD `1,513`** on gas.
 
-More importantly, assuming that a gallon of gas produces [8.887 kg of CO<sub>2</sub>](https://www.epa.gov/greenvehicles/greenhouse-gas-emissions-typical-passenger-vehicle) plus [30% since gas does not magically materializes at the gas station](https://innovationorigins.com/en/producing-gasoline-and-diesel-emits-more-co2-than-we-thought/). Including construction, installation and recycling, one KWh of electricity produced by our solar panels system creates 50g of CO<sub>2</sub>. Therefore we have avoided the emission of **`3.7` tons of CO<sub>2</sub>**.
+More importantly, assuming that a gallon of gas produces [8.887 kg of CO<sub>2</sub>](https://www.epa.gov/greenvehicles/greenhouse-gas-emissions-typical-passenger-vehicle) plus [30% since gas does not magically materializes at the gas station](https://innovationorigins.com/en/producing-gasoline-and-diesel-emits-more-co2-than-we-thought/). Including construction, installation and recycling, one KWh of electricity produced by our solar panels system creates 50g of CO<sub>2</sub>. Therefore we have avoided the emission of **`3.9` tons of CO<sub>2</sub>**.
+
+However, we have to take into account the production of the battery of both cars as they can be considered extra pollution compared to a gas car. If we assume the absolute nearly impossible worst  case scenario where it would not get recycled at all and we consider that creating a [1 KWh battery generates 73 Kg of CO<sub>2</sub>](https://changeit.app/blog/2021-03-26-environmental-impact-of-lithium-batteries/), our two EV batteries created around 10.3 tons of CO<sub>2</sub>. Therefor, at our current rate, it should take approximately two years and a half to break even with two gas cars.
 
 
 ## Conclusion
