@@ -622,7 +622,7 @@ class Scheduler(SchedulerInterface):
                 tasks_to_stop = finder()
                 if not tasks_to_stop:
                     continue
-                for task in tasks_to_stop:
+                for task in [*set(tasks_to_stop)]:
                     debug(f'Stopping {task.desc}')
                     task.stop()
                     self.running.remove(task)
