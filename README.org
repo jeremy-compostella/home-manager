@@ -73,6 +73,8 @@
 * Introduction
 This project is a *Solar power usage optimization system for residential home*. It is a set of software components and services scheduling and optimizing devices of a residential home to optimally use solar generated power.
 
+As detailed in section [[Financial and environmental results]], the use of solar panels, electric cars and software optimizations allow us to save at the very minimum *USD 2,500 per year* and to reduce our carbon emissions by more than *6.5 tons of CO_{2} per year*.
+
 Back in May 2021, I installed solar panels on my roof. As a software engineer concerned by the global warming I decided to develop an optimization system to reduce my carbon footprint. As I would like this project to benefit other and to keep it growing I decided to share it publicly.
 
 Optimizing requires having good understanding of what to optimize. In this particular case, it means which devices or appliances. I started collecting data from my electrical panel by installing sensors and within a few weeks I was able to identify the most energy-intensive devices.
@@ -488,7 +490,14 @@ In term of pool filtering, keeping the pool water clean and clear of bacteria de
 * Financial and environmental results
 This section presents the financial and environmental impacts of our use of solar panels, EV cars and the optimization system presented above.
 ** Home electricity
-Assuming a conservative 200 g/KWh of CO_{2} for the electricity produced by our power utility compared to the 50 g/KWh of CO_{2} from our solar panels, in the last twelve month, we have reduced our carbon emission by *call_home-usage() {{{results(=1.3=)}}} tons*.
+#+name: home-usage
+#+begin_src python :session :exports none :results value :var data=monthly-data(12) :dir ./src
+  data = eval(data)
+  print(data)
+  used=sum([d['solar'] - d['to_grid'] - d['ev'] for d in data])
+  '%.1f' % (((used * .250) - (used * 0.042)) / 1000)
+#+end_src
+[[https://app.electricitymaps.com/zone/US-SW-SRP][Assuming an average of 250 gCO_{2}eq/kWh for the electricity produced by our power utility]] compared to the [[https://www.ipcc.ch/site/assets/uploads/2018/02/ipcc_wg3_ar5_annex-iii.pdf][42 gCO_{2}eq/kWh]] (Table A.III.2 | Emissions of selected electricity supply technologies) from our solar panels, in the last twelve month, we have reduced our carbon emission by *call_home-usage() {{{results(=1.5=)}}} tons*.
 
 The following table presents our electricity bills without and with solar panels.
 
@@ -511,7 +520,7 @@ The following table presents our electricity bills without and with solar panels
 | Total     |         1772.7 |      724.55 | 1048.15 |
 #+tblfm: @>$3=vsum(@2..@-1)::@>$2=vsum(@2..@-1)::$4=$2-$3
 
-In a year, we saved *USD src_emacs-lisp[:var d=electricity-bills[15, 3]]{d} {{{results(=1048.15=)}}}* on our electricity bills. It means that the solar system installation will be entirely paid off in 13 years, assuming that the electricity rates do not increase and without taking into account the savings on cars presented below.
+In a year, we saved *USD src_emacs-lisp[:var d=electricity-bills[15, 3]]{d} {{{results(=1048.15=)}}}* on our electricity bills. It means that the solar system installation will be entirely paid off in 13 years. In reality, we are saving more than this since we did not have EVs before we install the solar panels so our old bills do not account for the extra cost of charging our cars.
 ** Cars and commute
 #+name: ev-charging-kwh
 #+begin_src python :session :exports none :results value :var data=monthly-data :dir ./src
@@ -551,7 +560,7 @@ In a year, we saved *USD src_emacs-lisp[:var d=electricity-bills[15, 3]]{d} {{{r
 
 #+name: ev-savings-co2
 #+begin_src python :session :exports none :results value :dir ./src :var kwh=ev-charging-kwh :var bolt=bolt-distance :var model3=model3-distance
-  '%.1f' % ((((int(bolt.replace(',', '')) + int(model3.replace(',', ''))) / 30 * 8.887 * 1.3) - int(kwh.replace(',', '')) * 0.5) / 1000)
+  '%.1f' % ((((int(bolt.replace(',', '')) + int(model3.replace(',', ''))) / 30 * 8.887 * 1.3) - int(kwh.replace(',', '')) * 0.042) / 1000)
 #+end_src
 
 #+name: model3-distance
@@ -593,17 +602,6 @@ Since May 2021, we have been driving call_bolt-distance() {{{results(=13\,965=)}
 
 If we assume we were driving a gas car with a mileage of 30 miles/gallon and an average gas price of 3.40 USD/gallon it would have cost us USD call_gas-equivalent-usd() {{{results(=1\,638=)}}}. It means that we saved *USD call_ev-savings-usd() {{{results(=1\,513=)}}}* on gas.
 
-More importantly, assuming that a gallon of gas produces [[https://www.epa.gov/greenvehicles/greenhouse-gas-emissions-typical-passenger-vehicle][8.887 kg of CO_{2}]] plus [[https://innovationorigins.com/en/producing-gasoline-and-diesel-emits-more-co2-than-we-thought/][30% since gas does not magically materializes at the gas station]]. Including construction, installation and recycling, one KWh of electricity produced by our solar panels system creates 50g of CO_{2}. Therefore we have avoided the emission of *call_ev-savings-co2() {{{results(=3.9=)}}} tons of CO_{2}*.
+More importantly, assuming that a gallon of gas produces [[https://www.epa.gov/greenvehicles/greenhouse-gas-emissions-typical-passenger-vehicle][8.887 kg of CO_{2}]] plus [[https://innovationorigins.com/en/producing-gasoline-and-diesel-emits-more-co2-than-we-thought/][30% since gas does not magically materializes at the gas station]]. Including construction, installation and recycling, one KWh of electricity produced by our solar panels system creates 42g of CO_{2}. Therefore we have avoided the emission of *call_ev-savings-co2() {{{results(=5.9=)}}} tons of CO_{2}*.
 
-However, we have to take into account the production of the battery of both cars as they can be considered extra pollution compared to a gas car. If we assume the absolute nearly impossible worst  case scenario where it would not get recycled at all and we consider that creating a [[https://changeit.app/blog/2021-03-26-environmental-impact-of-lithium-batteries/][1 KWh battery generates 73 Kg of CO_{2}]], our two EV batteries created around 10.3 tons of CO_{2}. Therefor, at our current rate, it should take approximately two years and a half to break even with two gas cars.
-
-#+name: home-usage
-#+begin_src python :session :exports none :results value :var data=monthly-data(12) :dir ./src
-  data = eval(data)
-  print(data)
-  used=sum([d['solar'] - d['to_grid'] - d['ev'] for d in data])
-  '%.1f' % (((used * .200) - (used * 0.050)) / 1000)
-#+end_src
-
-** Conclusion
-Our use of solar panels and electric cars to commute saves us about *USD 2,400 / per year* and reduces our carbon emissions by more than *4 tons of CO_{2}/year*.
+However, we have to take into account the production of the battery of both cars as they can be considered extra pollution compared to a gas car. If we assume the absolute nearly impossible worst  case scenario where it would not get recycled at all and we consider that creating a [[https://changeit.app/blog/2021-03-26-environmental-impact-of-lithium-batteries/][1 KWh battery generates 73 Kg of CO_{2}]], our two EV batteries created around 10.3 tons of CO_{2}. Therefor, at our current rate, it should take less than two years to break even with two gas cars.
