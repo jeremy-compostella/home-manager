@@ -761,7 +761,7 @@ def main():
         # pylint: disable=maybe-no-member
         if not record:
             gap = sensor.time_elapsed_since_latest_record()
-            debug('No new power sensor record for {gap}')
+            debug(f'No new power sensor record for {gap}')
             max_gap = timedelta(minutes=settings.max_record_gap)
             # No new power sensor record for more than
             # 'max_record_gap', let's try to use the power record
@@ -774,7 +774,7 @@ def main():
                     # Even the power simulator record cannot deliver any
                     # record, let's stop all the tasks until new records are
                     # available.
-                    debug('the scheduler has not been able to read ' +
+                    debug(f'the scheduler has not been able to read ' +
                           'any power sensor record for more than ' +
                           '{settings.max_record_gap} minutes.')
                     if not scheduler.is_on_pause():
