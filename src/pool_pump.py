@@ -62,7 +62,8 @@ from weather import WeatherProxy
 DEFAULT_SETTINGS = {'power_sensor_key': 'pool',
                     'min_run_time': timedelta(minutes=7),
                     'power': 2,
-                    'clean_filter_threshold': 1.55}
+                    'clean_filter_threshold': 1.55,
+                    'priority_adjustment_frequency': 10}
 
 MODULE_NAME = 'pool_pump'
 
@@ -382,6 +383,7 @@ def main():
     monitor = MonitorProxy()
     pool_sensor = SensorReader('pool')
     cycle_end = datetime.min
+    cycle = -1
     debug('... is now ready to run')
     while True:
         settings.load()
@@ -437,10 +439,17 @@ def main():
                 daemon.events(sockets)
             if datetime.now() >= next_cycle:
                 break
-        try:
-            task.adjust_priority()
-        except RuntimeError:
-            log_exception('Could not adjust priority', *sys.exc_info())
+
+        # pylint: disable=maybe-no-member
+        if cycle == -1 \
+           or cycle > settings.priority_adjustment_frequency:
+            try:
+                task.adjust_priority()
+            except RuntimeError:
+                log_exception('Could not adjust priority', *sys.exc_info())
+            cycle = 0
+        else:
+            cycle += 1
 
 if __name__ == '__main__':
     main()
