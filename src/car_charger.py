@@ -271,7 +271,7 @@ class TeslaCarCharger(CarCharger):
                 if err.response.status_code == 408:
                     debug('Vehicle offline, try to wake up')
                     self.vehicle.sync_wake_up()
-            except teslapy.VehicleError:
+            except (requests.exceptions.ReadTimeout, teslapy.VehicleError):
                 log_exception(f'{command} failed', *sys.exc_info())
 
     def start(self):
