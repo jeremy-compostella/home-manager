@@ -36,7 +36,7 @@ import os
 import socket
 import sys
 from abc import abstractmethod
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from enum import IntEnum
 from select import select
 from time import sleep
@@ -132,11 +132,20 @@ class CarCharger:
         '''Maximum State of charge.'''
 
     @property
+    @abstractmethod
+    def low_priority_threshold(self):
+        '''Define the LOW priority state of charge threshold.
+
+        Returns None to use the default.'''
+
+    @property
     def priority(self):
         '''Priority of this car charger.'''
         # Set the low threshold so that the highest the requested maximum
         # charge of state the highest the threshold.
-        low = self.max_state_of_charge - (100 - self.max_state_of_charge) / 2
+        low = self.low_priority_threshold
+        if not low:
+            low = self.max_state_of_charge - (100 - self.max_state_of_charge) / 2
         thresholds = {Priority.URGENT: 33,
                       Priority.HIGH: 55,
                       Priority.MEDIUM: low,
@@ -239,6 +248,12 @@ class WallboxCarCharger(CarCharger):
         '''Maximum State of charge.'''
         return self._max_state_of_charge
 
+    @property
+    def low_priority_threshold(self):
+        if date.today().weekday() == 0 or date.today().weekday() == 6:
+            return self._max_state_of_charge
+        return None
+
 class TeslaCarCharger(CarCharger):
     '''CarCharger implementation for Tesla.'''
     def __init__(self, name, vehicle, home, settings):
@@ -247,6 +262,13 @@ class TeslaCarCharger(CarCharger):
         self.home = home
         self.settings = settings
         self.cache = TTLCache(1, timedelta(seconds=15), datetime.now)
+        # On initialization, wake-up the car to get the car location
+        if not 'drive_state' in self.status:
+            self.vehicle.sync_wake_up()
+        # By default, consider the car not home to prevent any unexpected
+        # misbehavior.
+        self.was_home = False
+        self.was_home = self.is_home()
 
     @property
     def status(self):
@@ -259,7 +281,10 @@ class TeslaCarCharger(CarCharger):
             except requests.exceptions.RequestException as err:
                 raise RuntimeError('Failed to get vehicle data') from err
             status = vehicle_data['charge_state']
-            status.update(vehicle_data['drive_state'])
+            if 'drive_state' in vehicle_data:
+                status.update(vehicle_data['drive_state'])
+            else:
+                debug('Missing "drive_state"')
             self.cache['status'] = status
             return self.cache['status']
 
@@ -283,10 +308,14 @@ class TeslaCarCharger(CarCharger):
 
     def is_home(self):
         '''True if the car is located at home.'''
-        distance = geopy.distance.geodesic(self.home,
-                                           (self.status['latitude'],
-                                            self.status['longitude']))
-        return distance.feet < self.settings.home_distance_threshold_feet
+        if 'latitude' in self.status \
+           and 'longitude' in self.status:
+            distance = geopy.distance.geodesic(self.home,
+                                               (self.status['latitude'],
+                                                self.status['longitude']))
+            self.was_home = distance.feet < \
+                self.settings.home_distance_threshold_feet
+        return self.was_home
 
     def is_charging(self):
         return self.is_home() and self.status['charging_state'] == 'Charging'
@@ -331,6 +360,10 @@ class TeslaCarCharger(CarCharger):
     def max_state_of_charge(self):
         return self.status['charge_limit_soc']
 
+    @property
+    def low_priority_threshold(self):
+        return None
+
 class CarChargerTask(Task):
     '''Task handling car charging.'''
     def __init__(self, charger, settings: Settings):
@@ -369,7 +402,7 @@ class CarChargerTask(Task):
         if not self.is_runnable():
             return False
         if self.is_running():
-            return ratio >= 0.8
+            return ratio >= 0.9
         return ratio >= 1
 
     @property
@@ -480,7 +513,8 @@ def main():
                 task.charger.is_charging() # pylint: disable=pointless-statement
                 scheduler.register_task(uri)
             except RuntimeError:
-                debug('Self-test failed, unregister from the scheduler')
+                debug('Self-test failed on %d, unregister from the scheduler' %
+                      i)
                 scheduler.unregister_task(uri)
 
         next_cycle = datetime.now() + timedelta(
