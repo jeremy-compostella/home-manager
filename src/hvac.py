@@ -239,7 +239,9 @@ class HVACTask(Task, Sensor):
               % min(1, .95 * self.param.max_available_power / self.power))
         if timedelta(0) < self.param.target_time - datetime.now() < run_time:
             coefficient = (self.param.target_time - datetime.now()) / run_time
-            return ratio >= min_ratio * coefficient * coefficient
+            debug('updated min_ratio=%s' % (min_ratio * coefficient * coefficient))
+            min_ratio = min_ratio * coefficient * coefficient
+            return ratio >= min_ratio or min_ratio <= .15
         if self.is_running():
             if self._deviation(comfort=True) * self.hvac_mode.value > 0:
                 debug('Target has been reached')
@@ -274,9 +276,9 @@ class HVACTask(Task, Sensor):
             self.priority = min(Priority)
         else:
             self.priority = Priority(max(Priority) - floor(count))
-        if not self._is_in_comfortable_range() \
-           and self.priority < Priority.URGENT:
-            self.priority = Priority(self.priority + 1)
+        # if not self._is_in_comfortable_range() \
+        #    and self.priority < Priority.URGENT:
+        #     self.priority = Priority(self.priority + 1)
 
     def adjust_power(self):
         '''Update the power necessary to run HVAC system.'''
