@@ -286,7 +286,7 @@ class PoolPump(Task, Sensor):
             self._powers.append(power)
             self.filter_is_clean = \
                 mean(self._powers) > self._settings.clean_filter_threshold
-        return self.is_runnable() and ratio >= 1
+        return self.is_runnable() and ratio >= .9
 
     @property
     @Pyro5.api.expose
