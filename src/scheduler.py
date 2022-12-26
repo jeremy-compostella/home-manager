@@ -195,6 +195,10 @@ class Task:
     def keys(self, keys: list):
         self._keys = keys
 
+    def shared_keys(self, task) -> list:
+        '''Return the list of common keys with TASK.'''
+        return set(self.keys).intersection(task.keys)
+
     @property
     def auto_adjust(self) -> bool:
         '''The task automatically uses more power if available.
@@ -264,16 +268,30 @@ class PowerUsageSlidingWindow():
             record[key] = usage
 
     @staticmethod
+    def __replace_usage(record: dict, keys: list, usage: float):
+        record['net'] -= PowerUsageSlidingWindow.__usage(record, keys)
+        PowerUsageSlidingWindow.__set_usage(record, keys, usage)
+        record['net'] += usage
+
+    @staticmethod
     def __minimize(task: Task, record: dict):
         '''Reduce the power consumption of a TASK in RECORD to its minimal
         value as defined by the power field of the task.
 
         '''
+        PowerUsageSlidingWindow.__replace_usage(record, task.keys, task.power)
+
+    @staticmethod
+    def __minimum(task: Task, record: dict):
+        '''Make the power consumption of a TASK in RECORD to at the minimum the
+        value as defined by the power field of the task.
+
+        '''
         keys = task.keys
         power = task.power
-        record['net'] -= PowerUsageSlidingWindow.__usage(record, keys)
-        PowerUsageSlidingWindow.__set_usage(record, keys, power)
-        record['net'] += power
+        from_record = PowerUsageSlidingWindow.__usage(record, keys)
+        if from_record < power:
+            PowerUsageSlidingWindow.__replace_usage(record, keys, power)
 
     @staticmethod
     def __suppress(task: Task, record: dict):
@@ -558,6 +576,13 @@ class Scheduler(SchedulerInterface):
                            challenger.is_stoppable()]
             if not challengers:
                 continue
+
+            # Ensure that any running task sharing keys with TASK is in the
+            # challengers list.
+            sharing_keys = [t for t in self.running if task.shared_keys(t)]
+            if not set(sharing_keys).issubset(set(challengers)):
+                continue
+
             minimum = [t for t in self.adjustable if t not in challengers]
             ratio = self.stat.available_for(task, ignore=challengers,
                                             minimum=minimum)
@@ -572,15 +597,21 @@ class Scheduler(SchedulerInterface):
 
     def __elect_task(self) -> Pyro5.api.Proxy:
         '''Return the most suitable task to run.'''
-        # The power consumption of tasks sharing the same keys cannot be
-        # clearly identified. Therefor, they do not run simultaneously.
-        running_keys = [task.keys for task in self.running]
+        debug('Electing task')
+        debug(f'- Running {[task.desc for task in self.running]}')
+        debug(f'- Stopped {[task.desc for task in self.stopped]}')
+
+        # The power consumption of tasks sharing the same keys cannot clearly
+        # be identified. Therefor, we do not run them simultaneously.
+        running_keys = [key for task in self.running for key in task.keys]
         eligible = [task for task in self.stopped \
-                    if not task.keys in running_keys]
+                    if not set(task.keys).intersection(running_keys)]
+        debug(f'- Eligible {[task.desc for task in eligible]}')
 
         for task in eligible:
             ratio = self.stat.available_for(task, ignore=eligible,
                                             minimum=self.running)
+            debug(f'- Current Task {task.desc} ratio {ratio:.3f}')
             if self.running:
                 priority = mean([t.priority for t in self.running])
             else:
