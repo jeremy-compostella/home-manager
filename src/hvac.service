@@ -5,9 +5,9 @@ Wants=nameserver.service watchdog.service scheduler.service power_simulator.serv
 
 [Service]
 Type=simple
-User=pi
-Group=pi
-ExecStart=python3 /home/pi/src/hvac.py
+User=jcompost
+Group=jcompost
+ExecStart=python3 /home/jcompost/src/hvac.py
 TimeoutStartSec=0
 Restart=always
 RestartSec=10s

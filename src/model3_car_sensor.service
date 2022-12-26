@@ -5,9 +5,9 @@ Wants=nameserver.service watchdog.service bluetooth.service
 
 [Service]
 Type=simple
-User=pi
+User=jcompost
 Group=dialout
-ExecStart=python3 /home/pi/src/model3_car_sensor.py
+ExecStart=python3 /home/jcompost/src/model3_car_sensor.py
 TimeoutStartSec=0
 Restart=always
 RestartSec=10s

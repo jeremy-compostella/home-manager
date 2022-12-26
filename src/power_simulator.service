@@ -5,9 +5,9 @@ Wants=nameserver.service watchdog.service power_sensor.service weather.service
 
 [Service]
 Type=simple
-User=pi
-Group=pi
-ExecStart=python3 /home/pi/src/power_simulator.py
+User=jcompost
+Group=jcompost
+ExecStart=python3 /home/jcompost/src/power_simulator.py
 TimeoutStartSec=0
 Restart=always
 RestartSec=10s

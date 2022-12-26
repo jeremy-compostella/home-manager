@@ -3,9 +3,9 @@ Description=Pyro Nameserver Service
 
 [Service]
 Type=simple
-User=pi
-Group=pi
-ExecStart=python3 /home/pi/src/nameserver.py
+User=jcompost
+Group=jcompost
+ExecStart=python3 /home/jcompost/src/nameserver.py
 TimeoutStartSec=0
 Restart=always
 RestartSec=5s
