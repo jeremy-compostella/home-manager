@@ -46,7 +46,7 @@ from tools import (NameServer, Settings, debug, get_storage, init,
                    log_exception, my_excepthook)
 from watchdog import WatchdogProxy
 
-DEFAULT_SETTINGS = {'home_distance_threshold_feet': 50}
+DEFAULT_SETTINGS = {'home_distance_threshold_feet': 500}
 
 class Model3CarSensor(Sensor):
     '''Sensor collecting information via Tesla API.'''
@@ -75,17 +75,19 @@ class Model3CarSensor(Sensor):
         '''Attempt to collect a record from the car.'''
         # if self.vehicle.available():
         data = self.vehicle.get_vehicle_data()
-        self.cache['odometer'] = data['vehicle_state']['odometer']
+        if 'odometer' in data['vehicle_state']:
+            self.cache['odometer'] = data['vehicle_state']['odometer']
         self.cache['state of charge'] = data['charge_state']['battery_level']
-        self.cache['latitude'] = data['drive_state']['latitude']
-        self.cache['longitude'] = data['drive_state']['longitude']
-        distance = geopy.distance.geodesic(self.home_coordinate,
-                                           (data['drive_state']['latitude'],
-                                            data['drive_state']['longitude']))
-        if distance.feet < self.settings.home_distance_threshold_feet:
-            self.cache['is home'] = True
-        else:
-            self.cache['is home'] = False
+        if 'latitude' in data['drive_state']:
+            self.cache['latitude'] = data['drive_state']['latitude']
+            self.cache['longitude'] = data['drive_state']['longitude']
+            distance = geopy.distance.geodesic(self.home_coordinate,
+                                               (data['drive_state']['latitude'],
+                                                data['drive_state']['longitude']))
+            if distance.feet < self.settings.home_distance_threshold_feet:
+                self.cache['is home'] = True
+            else:
+                self.cache['is home'] = False
         if data['charge_state']['charging_state'] in ['NoPower', 'Charging',
                                                       'Complete', 'Stopped']:
             self.cache['is plugged in'] = True
@@ -141,7 +143,10 @@ class Model3CarSensorProxy(Sensor):
 def load_cache():
     '''Load Tesla cache data.'''
     with get_storage() as storage:
-        return storage['Tesla']
+        if 'Tesla' in storage:
+            return storage['Tesla']
+        else:
+            return {}
 
 def save_cache(cache):
     '''Store Tesla cache data.'''
