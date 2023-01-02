@@ -155,7 +155,7 @@ async def async_setup_platform(hass, config, add_entities, discovery_info=None):
         add_entities([PowerSensor(coordinator, 'power_simulator', key, 'minute')])
 
     for sensor in ['water_heater', 'car', 'utility_rate', 'weather', 'pool',
-                   'model3_car']:
+                   'model3_car', 'hvac']:
         coordinator = DataUpdateCoordinator(
             hass, LOGGER, name="sensor",
             update_method=update_generic_data(sensor),
