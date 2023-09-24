@@ -76,7 +76,9 @@ class Ewelink:
     def __init__(self, login, password, timeout=5, region='us'):
         self._credentials = {'login': login, 'password': password}
         self._timeout = timeout
-        self._info = {'base': f'https://{region}-api.coolkit.cc:8080/'}
+        self._info = \
+            {'api': f'https://{region}-api.coolkit.cc:8080/api/',
+             'dispatch': f'https://{region}-dispa.coolkit.cc:8080/dispatch/'}
         self._cache = TTLCache(1, timedelta(seconds=60), datetime.now)
         self._login()
 
@@ -95,7 +97,7 @@ class Ewelink:
         sign = base64.b64encode(hex_dig).decode()
         self._headers = {'Authorization': 'Sign ' + sign,
                          'Content-Type': 'application/json;charset=UTF-8'}
-        resp = self._post('api/user/login', app_details)
+        resp = self._post('api', 'user/login', app_details)
         if 'error' in resp:
             raise RuntimeError('Ewelink: login error')
         self._info.update({'token': resp['at'],
@@ -103,9 +105,9 @@ class Ewelink:
         self._headers.update({'Authorization' : 'Bearer ' +
                               self._info['token']})
 
-    def _post(self, path, data=None):
+    def _post(self, subdomain, path, data=None):
         '''POST HTTP request for Ewelink PATH with DATA.'''
-        resp = self._session.post(self._info['base'] + path,
+        resp = self._session.post(self._info[subdomain] + path,
                                   headers=self._headers,
                                   json=data, timeout=self._timeout)
         if not resp.ok:
@@ -116,7 +118,7 @@ class Ewelink:
     def _get(self, path, params):
         '''GET HTTP request for Ewelink PATH with PARAMS.'''
         for _ in range(2):
-            resp = self._session.get(self._info['base'] + path, params=params,
+            resp = self._session.get(self._info['api'] + path, params=params,
                                      headers=self._headers,
                                      timeout=self._timeout)
             if not resp.ok:
@@ -133,7 +135,7 @@ class Ewelink:
         if cache is not None:
             return cache
         timestamp = int(time.time())
-        devices = self._get('api/user/device',
+        devices = self._get('user/device',
                             {'appid': self.APP_ID,
                              'nonce': str(timestamp)[:8],
                              'ts': timestamp,
@@ -171,7 +173,7 @@ class Ewelink:
 
     def _websocket(self):
         if self._info.get('domain', None) is None:
-            resp = self._post('dispatch/app')
+            resp = self._post('dispatch', 'app')
             if 'domain' not in resp:
                 raise RuntimeError('Ewelink: Failed to read websocket domain')
             self._info['domain'] = resp['domain']
