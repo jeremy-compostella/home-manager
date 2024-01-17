@@ -4,11 +4,11 @@
 
 This project is a **Solar power usage optimization system for residential home**. It is a set of software components and services scheduling and optimizing devices of a residential home to optimally use solar generated power.
 
-As detailed in section [3](#orgf5b9e5a), the use of solar panels, electric cars and software optimizations allow us to save at the very minimum **USD 2,500 per year** and to reduce our carbon emissions by more than **7.1 tons of CO<sub>2</sub> per year**.
+As detailed in section [3](#org5d4bad2), the use of solar panels, electric cars and software optimizations allow us to save at the very minimum **USD 2,500 per year** and to reduce our carbon emissions by more than **7.1 tons of CO<sub>2</sub> per year**.
 
 Back in May 2021, I installed solar panels on my roof. As a software engineer concerned by the global warming I decided to develop an optimization system to reduce my carbon footprint. As I would like this project to benefit other and to keep it growing I decided to share it publicly.
 
-Optimizing requires having good understanding of what to optimize. In this particular case, it means which devices or appliances. I started collecting data from my electrical panel by installing sensors and within a few weeks I was able to identify the most energy-intensive devices.
+Optimizing requires having good understanding of what to optimize. In this particular case, it means which devices or appliances. I started collecting data from my electrical panel by installing sensors and within a few weeks I was able to identify the most energy-intensive devices. Here is the Pie chart of a full year.
 
 ![img](doc/images/yearly_energy_consumption_distribution.svg "Power consumption distribution over the last 12 months")
 
@@ -26,7 +26,7 @@ I have defined two measurable goals:
 1.  The electric car should be charged at 100% with solar produced energy
 2.  The home energy consumption (including the car charger) must be covered at more than two third by the solar energy
 
-From `January 2022` to `December 2022`, the entire home energy consumption has been covered by solar energy at `74%`.
+From `January 2023` to `December 2023`, the entire home energy consumption has been covered by solar energy at `77%`.
 
 The following diagram represents the distribution of the energy consumption of my home over the last twelve months since I started this project. It also includes the per-month ratio of energy used which  originated from the solar panels (light blue).
 
@@ -130,8 +130,6 @@ The [pool\_pump](./doc/pool_pump.md) task (`home_manager.task.pool_pump`)  is re
 In term of pool filtering, keeping the pool water clean and clear of bacteria depends on the water/outdoor temperature and filtering time.  The [pool\_pump](./doc/pool_pump.md) uses the pool temperature or the minimal temperature within the next twenty four hours to decide how long the pool pump should be run for the day. The priority is adjusted as we get closer to the target time.
 
 
-<a id="orgf5b9e5a"></a>
-
 # Financial and environmental results
 
 This section presents the financial and environmental impacts of our use of solar panels, EV cars and the optimization system presented above.
@@ -139,11 +137,11 @@ This section presents the financial and environmental impacts of our use of sola
 
 ## Home electricity
 
-[Assuming an average of 250 gCO<sub>2</sub>eq/kWh for the electricity produced by our power utility](https://app.electricitymaps.com/zone/US-SW-SRP) compared to the [42 gCO<sub>2</sub>eq/kWh](https://www.ipcc.ch/site/assets/uploads/2018/02/ipcc_wg3_ar5_annex-iii.pdf) (Table A.III.2 | Emissions of selected electricity supply technologies) from our solar panels, in the last twelve month, we have reduced our carbon emission by **`1.7` tons**.
+[Assuming an average of 294 gCO<sub>2</sub>eq/kWh for the electricity produced by our power utility on twelve months](https://app.electricitymaps.com/zone/US-SW-SRP) compared to the [41 gCO<sub>2</sub>eq/kWh](https://www.ipcc.ch/site/assets/uploads/2018/02/ipcc_wg3_ar5_annex-iii.pdf) (Table A.III.2 | Emissions of selected electricity supply technologies) from our solar panels, in the last twelve month, we have reduced our carbon emission by **`2.2` tons**.
 
 The following table presents our electricity bills without and with solar panels.
 
-<table id="org5ce32ae" border="1" cellspacing="0" frame="border" cellpadding="2" rules="all">
+<table id="org295ec57" border="1" cellspacing="0" frame="border" cellpadding="2" rules="all">
 
 
 <colgroup>
@@ -276,11 +274,27 @@ In a year, we saved **USD `1048.15`** on our electricity bills. It means that th
 
 ## Cars and commute
 
-Since May 2021, we have been driving `17,175` miles with our Bolt EV and since May 2022 `6,285` miles with our Model 3. I am purposefully excluding driving not powered by electricity from our home. We used a total of `6,351`  KWh from our solar panels to charge the cars. Considering that we used this electricity instead of selling it back to our power utility it "cost" us **USD `179`**.
+Since May 2021, we have been driving `26,011` miles with our Bolt EV and since May 2022 `12,670` miles with our Model 3. I am purposefully excluding driving not powered by electricity from our home. We used a total of `10,890`  KWh from our solar panels to charge the cars. Considering that we used this electricity instead of selling it back to our power utility it "cost" us **USD `307`**.
 
-If we assume we were driving a gas car with a mileage of 30 miles/gallon and an average gas price of 3.40 USD/gallon it would have cost us USD `2,417` . It means that we saved **USD `2,238`** on gas.
+If we assume we were driving a gas car with a mileage of 30 miles/gallon and an average gas price of 3.60 USD/gallon it would have cost us USD `4,219` . It means that we saved **USD `3,912`** on gas.
 
-More importantly, assuming that a gallon of gas produces [8.887 kg of CO<sub>2</sub>](https://www.epa.gov/greenvehicles/greenhouse-gas-emissions-typical-passenger-vehicle) plus [30% since gas does not magically materializes at the gas station](https://innovationorigins.com/en/producing-gasoline-and-diesel-emits-more-co2-than-we-thought/). Including construction, installation and recycling, one KWh of electricity produced by our solar panels system creates 42g of CO<sub>2</sub>. Therefore we have avoided the emission of **`8.8` tons of CO<sub>2</sub>**.
+More importantly, assuming that a gallon of gas produces [8.887 kg of CO<sub>2</sub>](https://www.epa.gov/greenvehicles/greenhouse-gas-emissions-typical-passenger-vehicle) plus [30% since gas does not magically materializes at the gas station](https://innovationorigins.com/en/producing-gasoline-and-diesel-emits-more-co2-than-we-thought/). Including construction, installation and recycling, one KWh of electricity produced by our solar panels system creates 41g of CO<sub>2</sub>. Therefore we have avoided the emission of **`14.4` tons of CO<sub>2</sub>**, about **`5.3`** **tons CO<sub>2</sub> / year**.
 
-However, we have to take into account the production of the battery of both cars as they can be considered extra pollution compared to a gas car. If we assume the absolute nearly impossible worst  case scenario where it would not get recycled at all and we consider that creating a [1 KWh battery generates 73 Kg of CO<sub>2</sub>](https://changeit.app/blog/2021-03-26-environmental-impact-of-lithium-batteries/), our two EV batteries created around 10.3 tons of CO<sub>2</sub>. Therefor, at our current rate, it should take less than two years to break even with two gas cars.
+However, we have to take into account the production of the battery of both cars as they can be considered extra pollution compared to a gas car. If we assume the absolute nearly impossible worst  case scenario where it would not get recycled at all and we consider that creating a [1 KWh battery generates 73 Kg of CO<sub>2</sub>](https://changeit.app/blog/2021-03-26-environmental-impact-of-lithium-batteries/), our two EV batteries created around 10.3 tons of CO<sub>2</sub>. Therefor, at our current rate, it took less than a year and a half to break even with two gas cars.
+
+
+# What would be the impact of adding a battery ?
+
+In the elapsed year, the maximum quantity of energy we pulled from the grid in one day is `38.3` KWh. Therefore, if we want to cover all our needs and assuming it is sunny every single day, we would need to at least double our solar installation and add a `38.3` KWh battery. It seems a bit like a huge investment which may not yield the best environmental results.
+
+As my main goal is to reduce my carbon footprint, I decided to look for the optimal battery size.  considered the following hypothesis:
+
+-   [1 KWh battery generates 73 Kg of CO<sub>2</sub>](https://changeit.app/blog/2021-03-26-environmental-impact-of-lithium-batteries/)
+-   My utility company generates 294 of CO<sub>2</sub> / KWh and my solar panel installation is at  [41 gCO<sub>2</sub>eq/kWh](https://www.ipcc.ch/site/assets/uploads/2018/02/ipcc_wg3_ar5_annex-iii.pdf) .
+
+For the year 2022 data and over various sizes of batteries, I plotted the number of years it would take to offset the carbon footprint of the battery.
+
+![img](doc/images/simulation-battery-years-to-offset.svg)
+
+&rArr;  the optimal battery size is about 3 KWh. It would save about 220 CO<sub>2</sub> per year which will be offset in about two years.
 
